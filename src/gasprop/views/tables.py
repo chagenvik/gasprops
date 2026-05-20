@@ -48,6 +48,7 @@ def _build_dataframes(
     pressure_unit: str,
     temperature_unit: str,
 ) -> dict[str, pd.DataFrame]:
+    """Build property tables for the selected pressure-temperature grid."""
     aga8 = pvtlib.AGA8(equation)
 
     temp_label = "°C" if temperature_unit == "C" else "K"
@@ -93,6 +94,7 @@ def _make_pdf_page(
     equation: str,
     component_label: str,
 ) -> plt.Figure:
+    """Create a PDF page with a property table and line plot."""
     name, unit, fmt = PROPERTIES[prop_key]
     temp_label = "°C" if temperature_unit == "C" else "K"
     title = (
@@ -153,6 +155,7 @@ def _build_pdf(
     equation: str,
     component_label: str,
 ) -> bytes:
+    """Build a multi-page PDF report for the selected properties."""
     buf = io.BytesIO()
     with PdfPages(buf) as pdf:
         for prop in selected_props:
@@ -173,6 +176,7 @@ def _build_pdf(
 
 
 def render(composition: dict | None):
+    """Render the property tables tab."""
     st.subheader("Property Tables")
     st.caption(
         "Generate gas property tables and plots over a pressure–temperature grid. "

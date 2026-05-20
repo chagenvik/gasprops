@@ -44,11 +44,13 @@ _EOS_OPTIONS: dict[str, str] = {
 
 
 def _comp_hash(composition: dict, eos_label: str) -> str:
+    """Return a stable cache hash for a composition and EoS."""
     payload = {"composition": composition, "eos": eos_label}
     return hashlib.md5(json.dumps(payload, sort_keys=True).encode()).hexdigest()
 
 
 def _calculate(composition: dict, eos_label: str) -> dict:
+    """Calculate phase-envelope data for the selected composition."""
     from neqsim.thermo import TPflash, fluid, phaseenvelope
 
     model = _EOS_OPTIONS[eos_label]

@@ -67,10 +67,12 @@ DEFAULT_COMPARE_PROPS = ["rho", "z", "w", "kappa"]
 
 
 def _comp_key(composition: dict) -> str:
+    """Return a stable hash for a composition."""
     return hashlib.md5(json.dumps(composition, sort_keys=True).encode()).hexdigest()
 
 
 def _calc_cricondentherm(composition: dict, eos_label: str) -> float:
+    """Calculate the cricondentherm temperature for a composition."""
     from neqsim.thermo import TPflash, fluid, phaseenvelope
 
     model = _CCT_EOS_OPTIONS[eos_label]
@@ -93,11 +95,13 @@ def _calc_cricondentherm(composition: dict, eos_label: str) -> float:
 
 def _grid_key(composition: dict, p_min: float, p_max: float, n_pts: int,
               temperature: float, p_unit: str, t_unit: str) -> tuple:
+    """Build a cache key for a comparison grid."""
     return (_comp_key(composition), p_min, p_max, n_pts, temperature, p_unit, t_unit)
 
 
 def _run_grid(composition: dict, pressures: list[float], temperature: float,
               p_unit: str, t_unit: str) -> dict:
+    """Calculate DETAIL and GERG property grids over the pressure range."""
     import pvtlib
 
     gerg = pvtlib.AGA8("GERG-2008")

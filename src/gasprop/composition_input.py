@@ -94,6 +94,7 @@ _FALLBACK_COMPONENT_MW: dict[str, float] = {
 
 @lru_cache(maxsize=1)
 def _aga8_component_molecular_weights() -> dict[str, float]:
+    """Return AGA8 molecular weights, using fallback values if needed."""
     try:
         import pvtlib
 
@@ -111,6 +112,7 @@ def load_composition_values_from_csv(
     *,
     require_full_schema: bool = False,
 ) -> tuple[dict[str, float], list[str], list[str]]:
+    """Load composition values from a CSV source."""
     composition_df = canonicalize_composition_dataframe(
         source,
         required_columns=("Component", "MolePercent"),
@@ -128,6 +130,7 @@ def load_composition_values_from_csv(
 
 
 def normalize_composition_values(values: dict[str, float]) -> dict[str, float]:
+    """Normalize values so they sum to 100 mol%."""
     total = sum(values.values())
     if total <= 0.0:
         return dict(values)
@@ -135,6 +138,7 @@ def normalize_composition_values(values: dict[str, float]) -> dict[str, float]:
 
 
 def export_composition_values_to_canonical_csv(values: dict[str, float]) -> str:
+    """Export composition values to canonical CSV text."""
     component_mw = _aga8_component_molecular_weights()
     export_df = pd.DataFrame(
         {
@@ -157,6 +161,7 @@ def _replace_composition_values(
     *,
     source: str = _EDITABLE_SOURCE,
 ) -> None:
+    """Replace stored composition values in session state."""
     session_key = _ss_key(key_prefix, source=source)
     st.session_state[session_key] = values
     editor_key = _table_key(key_prefix, source)
@@ -165,6 +170,7 @@ def _replace_composition_values(
 
 
 def _set_zero_composition_values(key_prefix: str) -> None:
+    """Set all stored composition values to zero."""
     _replace_composition_values(
         key_prefix,
         {component: 0.0 for component in COMPONENTS},
@@ -173,6 +179,7 @@ def _set_zero_composition_values(key_prefix: str) -> None:
 
 
 def _normalize_current_composition_values(key_prefix: str, values: dict[str, float]) -> None:
+    """Normalize the current stored composition values."""
     _replace_composition_values(
         key_prefix,
         normalize_composition_values(values),
@@ -181,44 +188,54 @@ def _normalize_current_composition_values(key_prefix: str, values: dict[str, flo
 
 
 def _ss_key(key_prefix: str, *, source: str = _EDITABLE_SOURCE) -> str:
+    """Build the session-state key for composition values."""
     return f"{key_prefix}_{source}_comp_values"
 
 
 def _table_key(key_prefix: str, source: str) -> str:
+    """Build the table widget key for a composition source."""
     return f"{key_prefix}_{source}_table"
 
 
 def _use_examples_key(key_prefix: str) -> str:
+    """Build the session-state key for the example toggle."""
     return f"{key_prefix}_use_example_gases"
 
 
 def _editable_import_applied_key(key_prefix: str) -> str:
+    """Build the session-state key for the imported-file marker."""
     return f"{key_prefix}_editable_import_applied"
 
 
 def _editable_import_counter_key(key_prefix: str) -> str:
+    """Build the session-state key for the import counter."""
     return f"{key_prefix}_editable_import_counter"
 
 
 def _example_selection_key(key_prefix: str) -> str:
+    """Build the session-state key for the example selector."""
     return f"{key_prefix}_example_selection"
 
 
 def _loaded_example_key(key_prefix: str) -> str:
+    """Build the session-state key for the loaded example marker."""
     return f"{key_prefix}_loaded_example"
 
 
 def _active_source(key_prefix: str) -> str:
+    """Return the active composition source name."""
     if st.session_state.get(_use_examples_key(key_prefix), False):
         return _EXAMPLE_SOURCE
     return _EDITABLE_SOURCE
 
 
 def _active_values(key_prefix: str) -> dict[str, float]:
+    """Return the active composition values from session state."""
     return dict(st.session_state[_ss_key(key_prefix, source=_active_source(key_prefix))])
 
 
 def _init_session_state(key_prefix: str) -> None:
+    """Initialize composition-related session state values."""
     defaults = {comp: _DEFAULTS.get(comp, 0.0) for comp in COMPONENTS}
     for source in (_EDITABLE_SOURCE, _EXAMPLE_SOURCE):
         session_key = _ss_key(key_prefix, source=source)
@@ -227,6 +244,7 @@ def _init_session_state(key_prefix: str) -> None:
 
 
 def _available_example_paths() -> dict[str, str]:
+    """Return the available example composition file paths."""
     example_dir = os.path.normpath(str(_COMPOSITIONS_DIR))
     if not os.path.isdir(example_dir):
         return {}
@@ -251,6 +269,7 @@ def _available_example_paths() -> dict[str, str]:
 
 
 def _load_example_composition(key_prefix: str, example_name: str, example_path: str) -> None:
+    """Load an example composition into session state."""
     new_values, unknown, lossy_warnings = load_composition_values_from_csv(example_path)
     _replace_composition_values(
         key_prefix,
@@ -265,6 +284,7 @@ def _load_example_composition(key_prefix: str, example_name: str, example_path: 
 
 
 def composition_io_controls(key_prefix: str = "comp", show_examples: bool = True) -> None:
+    """Render composition import and export controls."""
     _init_session_state(key_prefix)
 
     st.markdown("**Composition file**")
@@ -405,6 +425,7 @@ def composition_io_controls(key_prefix: str = "comp", show_examples: bool = True
 
 
 def composition_input(key_prefix: str = "comp") -> dict | None:
+    """Render the editable gas composition table."""
     _init_session_state(key_prefix)
     source = _active_source(key_prefix)
     is_example_source = source == _EXAMPLE_SOURCE

@@ -38,6 +38,7 @@ def _calculate_grid(
     pressure_unit: str,
     temperature_unit: str,
 ) -> np.ndarray:
+    """Calculate a property grid over the selected pressure and temperature ranges."""
     aga8 = pvtlib.AGA8(equation)
     z = np.empty((len(temperatures), len(pressures)))
     for i, T in enumerate(temperatures):
@@ -54,6 +55,7 @@ def _calculate_grid(
 
 
 def render(composition: dict | None) -> None:
+    """Render the 3D surface plot tab."""
     st.subheader("3D Surface Plot")
     st.caption(
         "Interactive surface of a single gas property over a pressure–temperature grid."

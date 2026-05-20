@@ -14,6 +14,7 @@ class ValidationIssue:
 
 
 def validate_composition(values: dict[str, float], mode: str = "GERG-2008") -> list[ValidationIssue]:
+    """Check composition values against the selected validation limits."""
     limits = VALIDATION_LIMITS[mode]["components"]
     issues: list[ValidationIssue] = []
     total = sum(float(v) for v in values.values())
@@ -27,6 +28,7 @@ def validate_composition(values: dict[str, float], mode: str = "GERG-2008") -> l
 
 
 def validate_state(pressure_bar: float, temperature_c: float, mode: str = "GERG-2008") -> list[ValidationIssue]:
+    """Check pressure and temperature against the selected validation limits."""
     limits = VALIDATION_LIMITS[mode]
     issues: list[ValidationIssue] = []
     if pressure_bar > limits["pressure_bar"]:
@@ -37,5 +39,6 @@ def validate_state(pressure_bar: float, temperature_c: float, mode: str = "GERG-
 
 
 def is_in_range(values: dict[str, float], pressure_bar: float, temperature_c: float, mode: str = "GERG-2008") -> bool:
+    """Return True when composition and state pass validation."""
     return not validate_composition(values, mode) and not validate_state(pressure_bar, temperature_c, mode)
 

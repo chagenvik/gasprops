@@ -54,6 +54,7 @@ _MODEL_ALLOWED: dict[str, set[str] | None] = {
 
 
 def _filter_composition(composition: dict, model_name: str) -> tuple[dict, list[str]]:
+    """Filter out unsupported components for the selected uncertainty model."""
     allowed = _MODEL_ALLOWED.get(model_name)
     if allowed is None:
         return dict(composition), []
@@ -75,7 +76,9 @@ _STATE_INPUT = "gp_unc_input_snapshot"
 
 
 def _make_calc_function(equation: str, p_unit: str, t_unit: str, comp_keys: list[str]):
+    """Create an AGA8 calculation function for uncertainty propagation."""
     def _calc(input_dict: dict) -> dict:
+        """Run one AGA8 property calculation for the supplied inputs."""
         composition = {k: input_dict[k] for k in comp_keys if k in input_dict}
         pressure = input_dict["pressure"]
         temperature = input_dict["temperature"]
@@ -101,6 +104,7 @@ def uncertainty_input_from_model(
     t_abs: float,
     t_rel: float,
 ) -> dict:
+    """Build an uncertainty input payload from a built-in composition model."""
     model_fn = COMP_MODELS[model_name]
     model_result = model_fn(composition)
 
@@ -129,6 +133,7 @@ def build_uncertainty_input(
     t_abs: float,
     t_rel: float,
 ) -> dict:
+    """Build an uncertainty input payload from a manual uncertainty table."""
     mean: dict = {}
     std_unc: dict = {}
     std_unc_pct: dict = {}
@@ -161,6 +166,7 @@ def build_uncertainty_input(
 
 
 def _render_standard_results(std_result: dict, selected_props: list[str]) -> None:
+    """Render standard-uncertainty results and contribution plots."""
     st.markdown("#### Standard Uncertainty Results")
 
     rows = []
@@ -215,6 +221,7 @@ def _render_standard_results(std_result: dict, selected_props: list[str]) -> Non
 
 
 def _render_mc_results(mc_df: pd.DataFrame, mc_stats: pd.DataFrame, selected_props: list[str]) -> None:
+    """Render Monte Carlo summary tables and distributions."""
     st.markdown("#### Monte Carlo Results")
 
     rows = []
@@ -271,6 +278,7 @@ def _render_mc_results(mc_df: pd.DataFrame, mc_stats: pd.DataFrame, selected_pro
 
 
 def render(composition: dict | None) -> None:
+    """Render the uncertainty analysis tab."""
     st.subheader("Uncertainty Analysis")
     st.caption(
         "Propagate compositional and P/T measurement uncertainties to AGA8 gas properties "

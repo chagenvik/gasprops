@@ -14,6 +14,7 @@ CANONICAL_COLUMNS = ["Component", "MolePercent", "MW", "Dens"]
 
 
 def canonical_component_name(raw: str) -> str:
+    """Normalize a raw component label to the app's standard internal name."""
     key = str(raw).strip()
     normalized = key.lower().replace(" ", "").replace("-", "")
     if normalized in COMPONENT_ALIASES:
@@ -27,6 +28,7 @@ def canonical_component_name(raw: str) -> str:
 
 
 def normalize_composition(values: dict[str, float]) -> dict[str, float]:
+    """Normalize component values to a 100 mol% composition."""
     cleaned = {canonical_component_name(k): float(v) for k, v in values.items() if float(v) > 0}
     total = sum(cleaned.values())
     if total <= 0:
@@ -39,6 +41,7 @@ def normalize_composition(values: dict[str, float]) -> dict[str, float]:
 
 
 def composition_from_dict(values: dict[str, float]) -> pd.DataFrame:
+    """Build a canonical composition table from component values."""
     normalized = normalize_composition(values)
     rows = []
     for name, spec in COMPONENTS.items():
@@ -55,6 +58,7 @@ def composition_from_dict(values: dict[str, float]) -> pd.DataFrame:
 
 
 def dict_from_composition_frame(frame: pd.DataFrame) -> dict[str, float]:
+    """Extract a normalized composition from a table."""
     if frame.empty:
         return {name: 0.0 for name in COMPONENTS}
     if "Component" not in frame.columns:
@@ -75,18 +79,22 @@ def dict_from_composition_frame(frame: pd.DataFrame) -> dict[str, float]:
 
 
 def composition_to_csv(values: dict[str, float]) -> str:
+    """Serialize a composition to canonical CSV text."""
     return composition_from_dict(values).to_csv(index=False)
 
 
 def frame_from_csv_text(text: str) -> pd.DataFrame:
+    """Read a composition CSV into a DataFrame."""
     return pd.read_csv(StringIO(text))
 
 
 def composition_from_csv_text(text: str) -> dict[str, float]:
+    """Parse a composition CSV into normalized values."""
     return dict_from_composition_frame(frame_from_csv_text(text))
 
 
 def available_example_names() -> list[str]:
+    """Return the available example composition names."""
     preferred = [
         "lean_gas",
         "rich_gas_01",
@@ -104,6 +112,7 @@ def available_example_names() -> list[str]:
 
 
 def load_example_composition(name: str) -> dict[str, float]:
+    """Load an example composition by name."""
     if EXAMPLE_DIR.exists():
         path = EXAMPLE_DIR / f"{name}.csv"
         if path.exists():
@@ -116,6 +125,7 @@ def load_example_composition(name: str) -> dict[str, float]:
 
 
 def composition_label(values: dict[str, float]) -> str:
+    """Build a short label for the largest composition components."""
     nonzero = [(k, v) for k, v in values.items() if v > 0]
     if not nonzero:
         return "Empty composition"
@@ -124,10 +134,12 @@ def composition_label(values: dict[str, float]) -> str:
 
 
 def composition_percent_sum(values: dict[str, float]) -> float:
+    """Return the total composition in mol%."""
     return sum(float(v) for v in values.values())
 
 
 def composition_to_mole_fractions(values: dict[str, float]) -> dict[str, float]:
+    """Convert mol% values to mole fractions."""
     total = composition_percent_sum(values)
     if total <= 0:
         return {name: 0.0 for name in COMPONENTS}
@@ -135,6 +147,7 @@ def composition_to_mole_fractions(values: dict[str, float]) -> dict[str, float]:
 
 
 def fill_missing_components(values: dict[str, float]) -> dict[str, float]:
+    """Return a full composition mapping with missing components set to zero."""
     normalized = normalize_composition(values)
     return {name: float(normalized.get(name, 0.0)) for name in COMPONENTS}
 

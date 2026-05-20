@@ -95,6 +95,7 @@ COMBINED_RANGES = {
 
 
 def render(composition: dict | None) -> None:
+    """Render the composition validation tab."""
     st.subheader("Composition Quality Validation")
 
     if composition is None:
@@ -209,6 +210,7 @@ def render(composition: dict | None) -> None:
     df = pd.DataFrame(table_rows)
 
     def color_status(val):
+        """Format pass/fail markers for the validation table."""
         if val == "✅":
             return "color: green; font-weight: bold; font-size: 16px;"
         elif val == "❌":
@@ -216,6 +218,7 @@ def render(composition: dict | None) -> None:
         return ""
 
     def color_actual(row):
+        """Highlight the actual value based on validation status."""
         detail_status = row["DETAIL"]
         gerg_status = row["GERG"]
 
@@ -235,6 +238,7 @@ def render(composition: dict | None) -> None:
 
 
 def _get_combined_range(symbols: list[str], eos_model: str) -> tuple:
+    """Return the combined limit range for grouped components."""
     key = tuple(symbols)
     group_range = COMBINED_RANGES.get(eos_model, {}).get(key)
     if group_range is not None:
@@ -246,6 +250,7 @@ def _get_combined_range(symbols: list[str], eos_model: str) -> tuple:
 
 
 def _display_validation_summary(composition: dict, pressure: float, temperature: float) -> None:
+    """Show overall DETAIL and GERG validation status."""
     detail_comp_violations = 0
     gerg_comp_violations = 0
 

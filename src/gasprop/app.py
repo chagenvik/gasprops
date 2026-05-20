@@ -23,6 +23,7 @@ VIEW_MAP = {
 
 
 def run_app() -> None:
+    """Render the main GasProps app layout and tabs."""
     st.set_page_config(page_title="GasProps", page_icon="🧪", layout="wide")
     st.markdown(
         """
