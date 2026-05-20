@@ -255,7 +255,6 @@ def _available_example_paths() -> dict[str, str]:
         "rich_gas_02.csv",
         "rich_gas_03.csv",
         "rich_gas_04.csv",
-        "hydrogen_blend.csv",
     ]
     ordered_filenames = [name for name in preferred_order if name in filenames]
     ordered_filenames.extend(sorted(filenames - set(ordered_filenames)))

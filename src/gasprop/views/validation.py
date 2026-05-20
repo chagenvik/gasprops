@@ -9,6 +9,8 @@ Validates gas compositions against AGA8 Part 2 standards:
 import streamlit as st
 import pandas as pd
 
+from ..constants import VALIDATION_LIMITS
+
 COMPONENTS_METADATA = [
     ("Methane", "C1"),
     ("Nitrogen", "N2"),
@@ -29,56 +31,8 @@ COMPONENTS_METADATA = [
     ("Argon", "Ar"),
 ]
 
-DETAIL_RANGES = {
-    "C1": (0.70, 1.00),
-    "N2": (0.00, 0.20),
-    "CO2": (0.00, 0.20),
-    "C2": (0.00, 0.10),
-    "C3": (0.00, 0.035),
-    "iC4": (0.00, 0.0075),
-    "nC4": (0.00, 0.0075),
-    "iC5": (0.00, 0.0025),
-    "nC5": (0.00, 0.0025),
-    "nC6": (0.00, 0.001),
-    "nC7": (0.00, 0.0005),
-    "nC8": (0.00, 0.000167),
-    "nC9": (0.00, 0.000167),
-    "nC10": (0.00, 0.000167),
-    "H2": (0.00, 0.10),
-    "O2": (0.00, 0.0002),
-    "CO": (0.00, 0.03),
-    "H2O": (0.00, 0.00015),
-    "H2S": (0.00, 0.0002),
-    "He": (0.00, 0.005),
-    "Ar": (0.00, 0.0002),
-}
-
-GERG_RANGES = {
-    "C1": (0.30, 1.00),
-    "N2": (0.00, 0.55),
-    "CO2": (0.00, 0.30),
-    "C2": (0.00, 0.25),
-    "C3": (0.00, 0.14),
-    "iC4": (0.00, 0.03),
-    "nC4": (0.00, 0.03),
-    "iC5": (0.00, 0.0025),
-    "nC5": (0.00, 0.0025),
-    "nC6": (0.00, 0.002),
-    "nC7": (0.00, 0.001),
-    "nC8": (0.00, 0.000167),
-    "nC9": (0.00, 0.000167),
-    "nC10": (0.00, 0.000167),
-    "H2": (0.00, 0.40),
-    "O2": (0.00, 0.02),
-    "CO": (0.00, 0.13),
-    "H2O": (0.00, 0.0002),
-    "H2S": (0.00, 0.27),
-    "He": (0.00, 0.005),
-    "Ar": (0.00, 0.0005),
-}
-
-DETAIL_BOUNDS = {"pressure_max": 350, "temperature_max": 177}
-GERG_BOUNDS = {"pressure_max": 700, "temperature_max": 427}
+DETAIL_LIMITS = VALIDATION_LIMITS["DETAIL"]
+GERG_LIMITS = VALIDATION_LIMITS["GERG-2008"]
 
 
 def render(composition: dict | None) -> None:
@@ -123,8 +77,8 @@ def render(composition: dict | None) -> None:
             gerg_min, gerg_max = _get_combined_range(symbols, "GERG")
         else:
             actual_pct = composition.get(symbol_combined, 0.0)
-            detail_range = DETAIL_RANGES.get(symbol_combined, (None, None))
-            gerg_range = GERG_RANGES.get(symbol_combined, (None, None))
+            detail_range = DETAIL_LIMITS["components"].get(symbol_combined, (None, None))
+            gerg_range = GERG_LIMITS["components"].get(symbol_combined, (None, None))
             detail_min, detail_max = detail_range
             gerg_min, gerg_max = gerg_range
 
@@ -157,30 +111,30 @@ def render(composition: dict | None) -> None:
             "Actual": f"{actual_pct:.2f}",
         })
 
-    detail_p_pass = 0 <= pressure <= DETAIL_BOUNDS["pressure_max"]
-    gerg_p_pass = 0 <= pressure <= GERG_BOUNDS["pressure_max"]
+    detail_p_pass = 0 <= pressure <= DETAIL_LIMITS["pressure_max"]
+    gerg_p_pass = 0 <= pressure <= GERG_LIMITS["pressure_max"]
     table_rows.append({
         "Component": "Pressure",
         "Symbol": "bar",
         "DETAIL Min": "0.00",
-        "DETAIL Max": f"{DETAIL_BOUNDS['pressure_max']:.2f}",
+        "DETAIL Max": f"{DETAIL_LIMITS['pressure_max']:.2f}",
         "DETAIL": "✅" if detail_p_pass else "❌",
         "GERG Min": "0.00",
-        "GERG Max": f"{GERG_BOUNDS['pressure_max']:.2f}",
+        "GERG Max": f"{GERG_LIMITS['pressure_max']:.2f}",
         "GERG": "✅" if gerg_p_pass else "❌",
         "Actual": f"{pressure:.2f}",
     })
 
-    detail_t_pass = 0 <= temperature <= DETAIL_BOUNDS["temperature_max"]
-    gerg_t_pass = 0 <= temperature <= GERG_BOUNDS["temperature_max"]
+    detail_t_pass = 0 <= temperature <= DETAIL_LIMITS["temperature_max"]
+    gerg_t_pass = 0 <= temperature <= GERG_LIMITS["temperature_max"]
     table_rows.append({
         "Component": "Temperature",
         "Symbol": "°C",
         "DETAIL Min": "0",
-        "DETAIL Max": str(DETAIL_BOUNDS["temperature_max"]),
+        "DETAIL Max": str(DETAIL_LIMITS["temperature_max"]),
         "DETAIL": "✅" if detail_t_pass else "❌",
         "GERG Min": "0",
-        "GERG Max": str(GERG_BOUNDS["temperature_max"]),
+        "GERG Max": str(GERG_LIMITS["temperature_max"]),
         "GERG": "✅" if gerg_t_pass else "❌",
         "Actual": f"{temperature:.2f}",
     })
@@ -226,7 +180,7 @@ def render(composition: dict | None) -> None:
 
 def _get_combined_range(symbols: list[str], eos_model: str) -> tuple:
     """Return the combined limit range for grouped components."""
-    ranges = DETAIL_RANGES if eos_model == "DETAIL" else GERG_RANGES
+    ranges = DETAIL_LIMITS["components"] if eos_model == "DETAIL" else GERG_LIMITS["components"]
     total_max = sum(ranges.get(s, (0, 0))[1] for s in symbols)
     return 0.0, total_max
 
@@ -244,8 +198,8 @@ def _display_validation_summary(composition: dict, pressure: float, temperature:
             gerg_min, gerg_max = _get_combined_range(symbols, "GERG")
         else:
             actual = composition.get(symbol_combined, 0.0)
-            detail_range = DETAIL_RANGES.get(symbol_combined, None)
-            gerg_range = GERG_RANGES.get(symbol_combined, None)
+            detail_range = DETAIL_LIMITS["components"].get(symbol_combined, None)
+            gerg_range = GERG_LIMITS["components"].get(symbol_combined, None)
             if detail_range:
                 detail_min, detail_max = detail_range
             else:
@@ -263,10 +217,10 @@ def _display_validation_summary(composition: dict, pressure: float, temperature:
             if not (gerg_min * 100 <= actual <= gerg_max * 100):
                 gerg_comp_violations += 1
 
-    detail_pt_ok = (0 <= pressure <= DETAIL_BOUNDS["pressure_max"] and
-                    0 <= temperature <= DETAIL_BOUNDS["temperature_max"])
-    gerg_pt_ok = (0 <= pressure <= GERG_BOUNDS["pressure_max"] and
-                  0 <= temperature <= GERG_BOUNDS["temperature_max"])
+    detail_pt_ok = (0 <= pressure <= DETAIL_LIMITS["pressure_max"] and
+                    0 <= temperature <= DETAIL_LIMITS["temperature_max"])
+    gerg_pt_ok = (0 <= pressure <= GERG_LIMITS["pressure_max"] and
+                  0 <= temperature <= GERG_LIMITS["temperature_max"])
 
     col1, col2 = st.columns(2)
 

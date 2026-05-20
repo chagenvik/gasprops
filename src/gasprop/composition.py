@@ -6,7 +6,7 @@ from typing import Iterable
 
 import pandas as pd
 
-from .constants import COMPONENTS, COMPONENT_ALIASES, DEFAULT_EXAMPLE, EXAMPLE_COMPOSITIONS
+from .constants import COMPONENTS, COMPONENT_ALIASES, DEFAULT_EXAMPLE
 
 
 EXAMPLE_DIR = Path(__file__).resolve().parents[2] / "data" / "examples"
@@ -95,20 +95,20 @@ def composition_from_csv_text(text: str) -> dict[str, float]:
 
 def available_example_names() -> list[str]:
     """Return the available example composition names."""
-    preferred = [
-        "lean_gas",
-        "rich_gas_01",
-        "rich_gas_02",
-        "rich_gas_03",
-        "rich_gas_04",
-        "hydrogen_blend",
-    ]
-    names = [name for name in preferred if name in EXAMPLE_COMPOSITIONS]
     if EXAMPLE_DIR.exists():
-        available_files = {path.stem for path in EXAMPLE_DIR.glob("*.csv")}
-        names.extend([name for name in preferred if name in available_files and name not in names])
-        names.extend(sorted((available_files | set(EXAMPLE_COMPOSITIONS)) - set(names)))
-    return names
+        preferred = [
+            "lean_gas",
+            "rich_gas_01",
+            "rich_gas_02",
+            "rich_gas_03",
+            "rich_gas_04",
+            "hydrogen_blend",
+        ]
+        available = {path.stem for path in EXAMPLE_DIR.glob("*.csv")}
+        ordered = [name for name in preferred if name in available]
+        ordered.extend(sorted(available - set(ordered)))
+        return ordered
+    return []
 
 
 def load_example_composition(name: str) -> dict[str, float]:
@@ -117,10 +117,6 @@ def load_example_composition(name: str) -> dict[str, float]:
         path = EXAMPLE_DIR / f"{name}.csv"
         if path.exists():
             return composition_from_csv_text(path.read_text())
-    if name in EXAMPLE_COMPOSITIONS:
-        return normalize_composition(EXAMPLE_COMPOSITIONS[name])
-    if name == DEFAULT_EXAMPLE:
-        return normalize_composition(EXAMPLE_COMPOSITIONS[DEFAULT_EXAMPLE])
     raise KeyError(name)
 
 
