@@ -80,19 +80,6 @@ GERG_RANGES = {
 DETAIL_BOUNDS = {"pressure_max": 350, "temperature_max": 177}
 GERG_BOUNDS = {"pressure_max": 700, "temperature_max": 427}
 
-COMBINED_RANGES = {
-    "DETAIL": {
-        ("iC4", "nC4"): (0.0, 0.015),
-        ("iC5", "nC5"): (0.0, 0.005),
-        ("nC8", "nC9", "nC10"): (0.0, 0.0005),
-    },
-    "GERG": {
-        ("iC4", "nC4"): (0.0, 0.06),
-        ("iC5", "nC5"): (0.0, 0.005),
-        ("nC8", "nC9", "nC10"): (0.0, 0.0005),
-    },
-}
-
 
 def render(composition: dict | None) -> None:
     """Render the composition validation tab."""
@@ -239,11 +226,6 @@ def render(composition: dict | None) -> None:
 
 def _get_combined_range(symbols: list[str], eos_model: str) -> tuple:
     """Return the combined limit range for grouped components."""
-    key = tuple(symbols)
-    group_range = COMBINED_RANGES.get(eos_model, {}).get(key)
-    if group_range is not None:
-        return group_range
-
     ranges = DETAIL_RANGES if eos_model == "DETAIL" else GERG_RANGES
     total_max = sum(ranges.get(s, (0, 0))[1] for s in symbols)
     return 0.0, total_max
