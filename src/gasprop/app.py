@@ -63,36 +63,34 @@ def run_app() -> None:
     with st.expander("📖 User guide", expanded=False):
         st.markdown(
             """
-            **What this is**
             Computes thermodynamic and transport properties of natural gas mixtures using the
             AGA8 equation of state (GERG-2008 or DETAIL).
 
             **How to use**
-            1. Enter the gas composition in the table to the right (units: mol%). Components
-               outside the standard natural-gas list (e.g. H₂, He) are available further down.
-            2. Use the buttons above the table to **Set to zero**, **Normalize**, or import
+            1. Enter the gas composition in the table to the right (units: mol%).
+            2. Use the controls in the left panel to **Set to zero**, **Normalize**, or import
                via **CSV**. You can also load a previously saved session fluid via
                *Use saved fluid (session)* — see "Saved fluids" below.
             3. Pick a tab:
-               - **Single point** — properties at one P, T.
-               - **Property table** — sweep over P/T grids; export to CSV/PDF.
-               - **3D surface** — visualise a property over a P/T plane.
-               - **Phase envelope** — quick SRK/NeqSim phase envelope check.
+               - **Single Calculation** — properties at one P, T.
+               - **Multi-Point Calculation** — properties at multiple pressure/temperature points.
+               - **Property Tables** — sweep over P/T grids; export to CSV/PDF.
+               - **3D plot** — visualise a property over a P/T plane.
+               - **Phase Envelope** — check the phase envelope with NeqSim.
+               - **Uncertainty Analysis** — propagate composition and P/T uncertainty.
+               - **AGA8 EoS Comparison** — compare AGA8 calculation modes.
+               - **AGA8 Validation** — check composition according to quality ranges in the AGA8 report.
             4. The composition you enter is shared across all tabs.
 
             **Composition format (AGA8)**
             This tool only accepts the **AGA8 component set**: standard natural-gas
             components plus H₂O, He, H₂, Ar, CO, O₂, H₂S. Heavy fractions are the defined
-            normal-alkanes nC6–nC10 (no pseudo C6+ components). When you load a
-            PVTcalc-family fluid (e.g. from PVT Estimator), it is converted automatically:
-            C6→nC6, …, C10→nC10, and any unsupported components (MEG, TEG, NaCl, …) are
-            dropped with a warning.
+            normal-alkanes nC6–nC10 (no pseudo C6+ components).
 
             **Saved fluids**
             Use *💾 Temporary save fluid* to keep a composition in memory for the current
-            browser session, and *Use saved fluid (session)* to reload it later — also from
-            other tools (e.g. PVT Estimator → Gas Properties). The library is cleared on
-            tab close, refresh, or app restart, with a cap of 20 fluids per session.
+            browser session, and *Use saved fluid (session)* to reload it later. The library
+            is cleared on tab close, refresh, or app restart, with a cap of 20 fluids per session.
 
             **Things to be aware of**
             - AGA8 properties assume **single-phase gas**. Always sanity-check your point

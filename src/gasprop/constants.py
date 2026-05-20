@@ -5,36 +5,31 @@ from collections import OrderedDict
 class ComponentSpec:
     name: str
     mw_g_mol: float
-    tc_k: float
-    pc_bar: float
-    omega: float
-    cp_molar_j_mol_k: float
-    cp_slope_j_mol_k2: float = 0.0
 
 
 COMPONENTS = OrderedDict(
     [
-        ("N2", ComponentSpec("N2", 28.0134, 126.2, 33.98, 0.0372, 29.1)),
-        ("CO2", ComponentSpec("CO2", 44.0095, 304.2, 73.80, 0.2239, 37.1)),
-        ("C1", ComponentSpec("C1", 16.0430, 190.6, 45.99, 0.0115, 35.7)),
-        ("C2", ComponentSpec("C2", 30.0700, 305.3, 48.72, 0.0995, 52.5)),
-        ("C3", ComponentSpec("C3", 44.0970, 369.8, 42.48, 0.1523, 73.6)),
-        ("iC4", ComponentSpec("iC4", 58.1240, 407.8, 36.48, 0.1840, 90.0)),
-        ("nC4", ComponentSpec("nC4", 58.1240, 425.2, 37.96, 0.2002, 90.5)),
-        ("iC5", ComponentSpec("iC5", 72.1510, 460.4, 33.80, 0.2274, 111.0)),
-        ("nC5", ComponentSpec("nC5", 72.1510, 469.7, 33.70, 0.2510, 111.5)),
-        ("nC6", ComponentSpec("nC6", 86.1780, 507.6, 30.25, 0.3010, 133.0)),
-        ("nC7", ComponentSpec("nC7", 100.2050, 540.2, 27.40, 0.3490, 155.0)),
-        ("nC8", ComponentSpec("nC8", 114.2320, 568.7, 24.90, 0.3990, 177.0)),
-        ("nC9", ComponentSpec("nC9", 128.2590, 594.6, 22.80, 0.4490, 199.0)),
-        ("nC10", ComponentSpec("nC10", 142.2860, 617.7, 21.00, 0.4970, 221.0)),
-        ("H2", ComponentSpec("H2", 2.0159, 33.2, 12.80, -0.2160, 28.8)),
-        ("O2", ComponentSpec("O2", 31.9980, 154.6, 50.40, 0.0222, 29.4)),
-        ("CO", ComponentSpec("CO", 28.0101, 132.9, 34.90, 0.0490, 29.1)),
-        ("H2O", ComponentSpec("H2O", 18.0153, 647.1, 220.50, 0.3440, 33.6)),
-        ("H2S", ComponentSpec("H2S", 34.0809, 373.2, 89.60, 0.1000, 34.6)),
-        ("He", ComponentSpec("He", 4.0026, 5.2, 2.27, -0.3900, 20.8)),
-        ("Ar", ComponentSpec("Ar", 39.9480, 150.9, 48.98, -0.0020, 20.8)),
+        ("N2", ComponentSpec("N2", 28.0134)),
+        ("CO2", ComponentSpec("CO2", 44.0095)),
+        ("C1", ComponentSpec("C1", 16.04246)),
+        ("C2", ComponentSpec("C2", 30.06904)),
+        ("C3", ComponentSpec("C3", 44.09562)),
+        ("iC4", ComponentSpec("iC4", 58.1232)),
+        ("nC4", ComponentSpec("nC4", 58.1232)),
+        ("iC5", ComponentSpec("iC5", 72.15)),
+        ("nC5", ComponentSpec("nC5", 72.15)),
+        ("nC6", ComponentSpec("nC6", 86.177)),
+        ("nC7", ComponentSpec("nC7", 100.205)),
+        ("nC8", ComponentSpec("nC8", 114.232)),
+        ("nC9", ComponentSpec("nC9", 128.259)),
+        ("nC10", ComponentSpec("nC10", 142.286)),
+        ("H2", ComponentSpec("H2", 2.01588)),
+        ("O2", ComponentSpec("O2", 31.999)),
+        ("CO", ComponentSpec("CO", 28.01)),
+        ("H2O", ComponentSpec("H2O", 18.01528)),
+        ("H2S", ComponentSpec("H2S", 34.081)),
+        ("He", ComponentSpec("He", 4.003)),
+        ("Ar", ComponentSpec("Ar", 39.948)),
     ]
 )
 
