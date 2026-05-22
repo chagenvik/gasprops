@@ -6,7 +6,7 @@ from typing import Iterable
 
 import pandas as pd
 
-from .constants import COMPONENTS, COMPONENT_ALIASES, DEFAULT_EXAMPLE
+from .domain import COMPONENTS, COMPONENT_ALIASES
 
 
 EXAMPLE_DIR = Path(__file__).resolve().parents[2] / "data" / "examples"
@@ -146,4 +146,3 @@ def fill_missing_components(values: dict[str, float]) -> dict[str, float]:
     """Return a full composition mapping with missing components set to zero."""
     normalized = normalize_composition(values)
     return {name: float(normalized.get(name, 0.0)) for name in COMPONENTS}
-

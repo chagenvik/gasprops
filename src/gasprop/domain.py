@@ -1,5 +1,5 @@
-from dataclasses import dataclass
 from collections import OrderedDict
+from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class ComponentSpec:
@@ -51,8 +51,6 @@ COMPONENT_ALIASES = {
     "nonane": "nC9",
     "decane": "nC10",
 }
-
-DEFAULT_EXAMPLE = "lean_gas"
 
 VALIDATION_LIMITS = {
     "DETAIL": {
@@ -111,3 +109,26 @@ VALIDATION_LIMITS = {
     },
 }
 
+NEQSIM_NAMES: dict[str, str] = {
+    "N2": "nitrogen",
+    "CO2": "CO2",
+    "C1": "methane",
+    "C2": "ethane",
+    "C3": "propane",
+    "iC4": "i-butane",
+    "nC4": "n-butane",
+    "iC5": "i-pentane",
+    "nC5": "n-pentane",
+    "nC6": "n-hexane",
+    "nC7": "n-heptane",
+    "nC8": "n-octane",
+    "nC9": "n-nonane",
+    "nC10": "nC10",
+    "H2O": "water",
+    "He": "helium",
+    "H2": "hydrogen",
+    "Ar": "argon",
+    "CO": "CO",
+    "O2": "oxygen",
+    "H2S": "H2S",
+}

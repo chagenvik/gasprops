@@ -117,9 +117,17 @@ def run_app() -> None:
 
     st.divider()
     st.info(
-        "**Disclaimer:** Results are for informational and engineering screening purposes only. "
-        "They must be independently verified before any operational, safety-critical, or compliance use. "
-        "The tool is provided **as-is**, with no warranty, and the creator is not responsible for "
-        "errors, omissions, or decisions made from its outputs.\n\n"
+        "**Disclaimer:** This software is provided **as-is**, without warranty of any kind, express or implied, "
+        "including merchantability, fitness for a particular purpose, non-infringement, accuracy, or completeness. "
+        "The app is for informational and educational use only and is not a certified engineering, safety, or "
+        "operational decision tool. Results may be inaccurate, incomplete, or unsuitable for a specific use case. "
+        "Users are solely responsible for interpretation, validation, and use of outputs, and for compliance with "
+        "applicable laws, regulations, standards, and internal procedures. Independent verification by qualified "
+        "professionals is required before any design, operational, safety-critical, financial, or regulatory decision. "
+        "To the maximum extent permitted by law, the authors, contributors, and distributors are not liable for any "
+        "direct, indirect, incidental, special, exemplary, consequential, or other damages (including data loss, "
+        "profit loss, production loss, or business interruption) arising from use of, or inability to use, this "
+        "software, even if advised of the possibility of such damages. Use of this app constitutes acceptance of "
+        "these terms.\n\n"
         "**License:** MIT — see `LICENSE`."
     )

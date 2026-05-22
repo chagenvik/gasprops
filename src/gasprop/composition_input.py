@@ -67,29 +67,9 @@ COMPONENTS: dict[str, str] = {**STD_COMPONENTS, **EXTRA_COMPONENTS}
 
 _DEFAULTS: dict[str, float] = {"C1": 100.0}
 
-_FALLBACK_COMPONENT_MW: dict[str, float] = {
-    "C1": 16.04246,
-    "N2": 28.0134,
-    "CO2": 44.0095,
-    "C2": 30.06904,
-    "C3": 44.09562,
-    "iC4": 58.1222,
-    "nC4": 58.1222,
-    "iC5": 72.14878,
-    "nC5": 72.14878,
-    "nC6": 86.17536,
-    "nC7": 100.20194,
-    "nC8": 114.22852,
-    "nC9": 128.2551,
-    "nC10": 142.28168,
-    "H2": 2.01588,
-    "O2": 31.9988,
-    "CO": 28.0101,
-    "H2O": 18.01528,
-    "H2S": 34.08088,
-    "He": 4.002602,
-    "Ar": 39.948,
-}
+from .domain import COMPONENTS as _COMP_SPECS
+
+_FALLBACK_COMPONENT_MW: dict[str, float] = {k: spec.mw_g_mol for k, spec in _COMP_SPECS.items()}
 
 
 @lru_cache(maxsize=1)

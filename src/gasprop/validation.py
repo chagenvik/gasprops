@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .constants import VALIDATION_LIMITS
+from .domain import VALIDATION_LIMITS
 
 
 @dataclass(frozen=True)
@@ -41,4 +41,3 @@ def validate_state(pressure_bar: float, temperature_c: float, mode: str = "GERG-
 def is_in_range(values: dict[str, float], pressure_bar: float, temperature_c: float, mode: str = "GERG-2008") -> bool:
     """Return True when composition and state pass validation."""
     return not validate_composition(values, mode) and not validate_state(pressure_bar, temperature_c, mode)
-

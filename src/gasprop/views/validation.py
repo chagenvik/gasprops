@@ -9,7 +9,7 @@ Validates gas compositions against AGA8 Part 2 standards:
 import streamlit as st
 import pandas as pd
 
-from ..constants import VALIDATION_LIMITS
+from ..domain import VALIDATION_LIMITS
 
 COMPONENTS_METADATA = [
     ("Methane", "C1"),
@@ -86,15 +86,15 @@ def render(composition: dict | None) -> None:
         gerg_pass = None
 
         if detail_min is not None and detail_max is not None:
-            detail_pass = detail_min * 100 <= actual_pct <= detail_max * 100
+            detail_pass = detail_min <= actual_pct <= detail_max
 
         if gerg_min is not None and gerg_max is not None:
-            gerg_pass = gerg_min * 100 <= actual_pct <= gerg_max * 100
+            gerg_pass = gerg_min <= actual_pct <= gerg_max
 
-        detail_min_str = f"{detail_min*100:.2f}" if detail_min is not None else "—"
-        detail_max_str = f"{detail_max*100:.2f}" if detail_max is not None else "—"
-        gerg_min_str = f"{gerg_min*100:.2f}" if gerg_min is not None else "—"
-        gerg_max_str = f"{gerg_max*100:.2f}" if gerg_max is not None else "—"
+        detail_min_str = f"{detail_min:.2f}" if detail_min is not None else "—"
+        detail_max_str = f"{detail_max:.2f}" if detail_max is not None else "—"
+        gerg_min_str = f"{gerg_min:.2f}" if gerg_min is not None else "—"
+        gerg_max_str = f"{gerg_max:.2f}" if gerg_max is not None else "—"
 
         detail_status = "✅" if detail_pass else "❌" if detail_pass is False else ""
         gerg_status = "✅" if gerg_pass else "❌" if gerg_pass is False else ""
@@ -111,30 +111,30 @@ def render(composition: dict | None) -> None:
             "Actual": f"{actual_pct:.2f}",
         })
 
-    detail_p_pass = 0 <= pressure <= DETAIL_LIMITS["pressure_max"]
-    gerg_p_pass = 0 <= pressure <= GERG_LIMITS["pressure_max"]
+    detail_p_pass = 0 <= pressure <= DETAIL_LIMITS["pressure_bar"]
+    gerg_p_pass = 0 <= pressure <= GERG_LIMITS["pressure_bar"]
     table_rows.append({
         "Component": "Pressure",
         "Symbol": "bar",
         "DETAIL Min": "0.00",
-        "DETAIL Max": f"{DETAIL_LIMITS['pressure_max']:.2f}",
+        "DETAIL Max": f"{DETAIL_LIMITS['pressure_bar']:.2f}",
         "DETAIL": "✅" if detail_p_pass else "❌",
         "GERG Min": "0.00",
-        "GERG Max": f"{GERG_LIMITS['pressure_max']:.2f}",
+        "GERG Max": f"{GERG_LIMITS['pressure_bar']:.2f}",
         "GERG": "✅" if gerg_p_pass else "❌",
         "Actual": f"{pressure:.2f}",
     })
 
-    detail_t_pass = 0 <= temperature <= DETAIL_LIMITS["temperature_max"]
-    gerg_t_pass = 0 <= temperature <= GERG_LIMITS["temperature_max"]
+    detail_t_pass = 0 <= temperature <= DETAIL_LIMITS["temperature_c"]
+    gerg_t_pass = 0 <= temperature <= GERG_LIMITS["temperature_c"]
     table_rows.append({
         "Component": "Temperature",
         "Symbol": "°C",
         "DETAIL Min": "0",
-        "DETAIL Max": str(DETAIL_LIMITS["temperature_max"]),
+        "DETAIL Max": str(DETAIL_LIMITS["temperature_c"]),
         "DETAIL": "✅" if detail_t_pass else "❌",
         "GERG Min": "0",
-        "GERG Max": str(GERG_LIMITS["temperature_max"]),
+        "GERG Max": str(GERG_LIMITS["temperature_c"]),
         "GERG": "✅" if gerg_t_pass else "❌",
         "Actual": f"{temperature:.2f}",
     })
@@ -210,17 +210,17 @@ def _display_validation_summary(composition: dict, pressure: float, temperature:
                 gerg_min, gerg_max = None, None
 
         if detail_min is not None and detail_max is not None:
-            if not (detail_min * 100 <= actual <= detail_max * 100):
+            if not (detail_min <= actual <= detail_max):
                 detail_comp_violations += 1
 
         if gerg_min is not None and gerg_max is not None:
-            if not (gerg_min * 100 <= actual <= gerg_max * 100):
+            if not (gerg_min <= actual <= gerg_max):
                 gerg_comp_violations += 1
 
-    detail_pt_ok = (0 <= pressure <= DETAIL_LIMITS["pressure_max"] and
-                    0 <= temperature <= DETAIL_LIMITS["temperature_max"])
-    gerg_pt_ok = (0 <= pressure <= GERG_LIMITS["pressure_max"] and
-                  0 <= temperature <= GERG_LIMITS["temperature_max"])
+    detail_pt_ok = (0 <= pressure <= DETAIL_LIMITS["pressure_bar"] and
+                    0 <= temperature <= DETAIL_LIMITS["temperature_c"])
+    gerg_pt_ok = (0 <= pressure <= GERG_LIMITS["pressure_bar"] and
+                  0 <= temperature <= GERG_LIMITS["temperature_c"])
 
     col1, col2 = st.columns(2)
 

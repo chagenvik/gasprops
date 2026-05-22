@@ -15,32 +15,10 @@ import numpy as np
 import plotly.graph_objects as go
 import streamlit as st
 
+from ..domain import NEQSIM_NAMES as _NEQSIM_NAMES
+
 _STATE_GRID = "gp_eos_cmp_grid"
 _STATE_CCT  = "gp_eos_cmp_cct"
-
-_NEQSIM_NAMES: dict[str, str] = {
-    "N2":   "nitrogen",
-    "CO2":  "CO2",
-    "C1":   "methane",
-    "C2":   "ethane",
-    "C3":   "propane",
-    "iC4":  "i-butane",
-    "nC4":  "n-butane",
-    "iC5":  "i-pentane",
-    "nC5":  "n-pentane",
-    "nC6":  "n-hexane",
-    "nC7":  "n-heptane",
-    "nC8":  "n-octane",
-    "nC9":  "n-nonane",
-    "nC10": "nC10",
-    "H2O":  "water",
-    "He":   "helium",
-    "H2":   "hydrogen",
-    "Ar":   "argon",
-    "CO":   "CO",
-    "O2":   "oxygen",
-    "H2S":  "H2S",
-}
 
 _CCT_EOS_OPTIONS = {
     "SRK (Soave-Redlich-Kwong)": "srk",
