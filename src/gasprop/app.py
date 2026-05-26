@@ -28,10 +28,22 @@ def run_app() -> None:
     st.markdown(
         """
         <style>
+        [data-testid="stAppViewContainer"] {
+            background: linear-gradient(160deg, #0d1b2a 0%, #1b3a5c 40%, #2e6b8a 70%, #1b3a5c 100%);
+        }
+        [data-testid="stHeader"] {
+            background: transparent;
+        }
         .block-container {
             max-width: 1300px;
             padding-left: 3rem;
             padding-right: 3rem;
+            background-color: #ffffff;
+        }
+        @media (prefers-color-scheme: dark) {
+            .block-container {
+                background-color: #0e1117;
+            }
         }
         </style>
         """,
@@ -47,7 +59,7 @@ def run_app() -> None:
         "multi-point tables, 3D surface plots, and phase envelope calculations via SRK/neqsim."
     )
     st.markdown(
-        "Developed by **Equinor K-lab**. This application is built on open-source libraries: "
+        "Developed by **Equinor K-lab**, by Christian Hågenvik. This application is built on open-source libraries: "
         "[pvtlib](https://github.com/equinor/pvtlib), "
         "[uncertaintylib](https://github.com/equinor/uncertaintylib), and "
         "[neqsim-python](https://github.com/equinor/neqsim-python)."
