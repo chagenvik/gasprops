@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+from collections.abc import Callable
 
 import numpy as np
 import pandas as pd
@@ -37,6 +38,7 @@ PROPERTIES = {
     "z": ("Compressibility Factor", "-"),
     "speed_of_sound": ("Speed of Sound", "m/s"),
     "viscosity": ("Viscosity", "Pa*s"),
+    "kinematic_viscosity": ("Kinematic Viscosity", "m2/s"),
     "cp": ("Isobaric Heat Capacity", "J/(mol*K)"),
     "cv": ("Isochoric Heat Capacity", "J/(mol*K)"),
     "enthalpy": ("Enthalpy", "J/mol"),
@@ -111,6 +113,15 @@ def _phase_properties(phase) -> dict[str, float | None]:
     except Exception:
         pass
 
+    # Kinematic viscosity: nu = mu / rho
+    try:
+        mu = props.get("viscosity")
+        rho = props.get("density")
+        if mu is not None and rho is not None and rho > 0.0:
+            props["kinematic_viscosity"] = float(mu) / float(rho)
+    except Exception:
+        pass
+
     try:
         props["cp"] = float(phase.getCp())
     except Exception:
@@ -159,6 +170,7 @@ def _run_flash(
     temperature_unit: str,
     selected_phases: list[str],
     selected_properties: list[str],
+    progress_callback: Callable[[int, int], None] | None = None,
 ) -> tuple[pd.DataFrame, dict[int, dict[str, dict[str, float]]], list[str]]:
     from neqsim.thermo import TPflash, fluid
 
@@ -168,15 +180,17 @@ def _run_flash(
     phase_comp_by_row: dict[int, dict[str, dict[str, float]]] = {}
     records: list[dict[str, float | str | bool | None]] = []
 
+    # Build one fluid per run/EOS and reuse it across all P/T points.
+    gas_fluid = fluid(eos_model)
+    for comp_name, frac in comp.items():
+        gas_fluid.addComponent(_NEQSIM_NAMES[comp_name], frac)
+    gas_fluid.setMixingRule(2)
+
+    total_points = len(points)
     for row_idx, (pressure, temperature) in enumerate(points, start=1):
         try:
-            gas_fluid = fluid(eos_model)
-            for comp_name, frac in comp.items():
-                gas_fluid.addComponent(_NEQSIM_NAMES[comp_name], frac)
-
             gas_fluid.setTemperature(float(temperature), temperature_unit)
             gas_fluid.setPressure(float(pressure), pressure_unit)
-            gas_fluid.setMixingRule(2)
             TPflash(gas_fluid)
             gas_fluid.initProperties()
 
@@ -224,6 +238,9 @@ def _run_flash(
             errors.append(
                 f"Row {row_idx} (P={pressure} {pressure_unit}, T={temperature} {temperature_unit}) failed: {exc}"
             )
+        finally:
+            if progress_callback is not None:
+                progress_callback(row_idx, total_points)
 
     return pd.DataFrame(records), phase_comp_by_row, errors
 
@@ -260,19 +277,42 @@ def _plot_results(df: pd.DataFrame) -> None:
         c for c in df.columns if c not in numeric_cols
     ]
 
+    pressure_col = next((c for c in df.columns if c.startswith("Pressure [")), None)
+    gas_density_col = next((c for c in df.columns if c.startswith("Gas Density [")), None)
+    gas_z_col = next((c for c in df.columns if c.startswith("Gas Compressibility Factor [")), None)
+
+    default_x = pressure_col if pressure_col in numeric_cols else (numeric_cols[0] if numeric_cols else None)
+    default_y = gas_density_col if gas_density_col in numeric_cols else (numeric_cols[1] if len(numeric_cols) > 1 else default_x)
+
+    color_options = ["None"] + numeric_cols + categorical_cols
+    default_color = gas_z_col if gas_z_col in color_options else (numeric_cols[2] if len(numeric_cols) > 2 else "None")
+
+    if default_x is None:
+        st.info("No numeric result columns available for plotting.")
+        return
+
+    default_x_idx = numeric_cols.index(default_x)
+    default_y_idx = numeric_cols.index(default_y) if default_y in numeric_cols else default_x_idx
+    default_color_idx = color_options.index(default_color) if default_color in color_options else 0
+
+    color_scale_options = ["Viridis", "Plasma", "Inferno", "Magma", "Cividis", "Turbo"]
+    default_color_scale_idx = 0
+
     if plot_mode == "2D":
         c1, c2, c3, c4 = st.columns(4)
-        x_col = c1.selectbox("X axis", numeric_cols, index=0, key="flash_plot2d_x")
-        y_col = c2.selectbox("Y axis", numeric_cols, index=min(1, len(numeric_cols) - 1), key="flash_plot2d_y")
-        color_col = c3.selectbox("Color by", options=["None"] + numeric_cols + categorical_cols, key="flash_plot2d_color")
-        symbol_col = c4.selectbox("Group by (symbol)", options=["None"] + categorical_cols, key="flash_plot2d_group")
+        x_col = c1.selectbox("X axis", numeric_cols, index=default_x_idx, key="flash_plot2d_x")
+        y_col = c2.selectbox("Y axis", numeric_cols, index=default_y_idx, key="flash_plot2d_y")
+        color_col = c3.selectbox("Color by", options=color_options, index=default_color_idx, key="flash_plot2d_color")
+        color_scale = c4.selectbox("Color palette", options=color_scale_options, index=default_color_scale_idx, key="flash_plot2d_colorscale")
+
+        color_is_numeric = color_col in numeric_cols
 
         fig = px.scatter(
             df,
             x=x_col,
             y=y_col,
             color=None if color_col == "None" else color_col,
-            symbol=None if symbol_col == "None" else symbol_col,
+            color_continuous_scale=color_scale if color_is_numeric else None,
             hover_data=["Input Row", "Phase Status"],
         )
         fig.update_layout(height=520)
@@ -282,12 +322,17 @@ def _plot_results(df: pd.DataFrame) -> None:
             st.info("Need at least three numeric columns for 3D plot.")
             return
 
+        default_z = numeric_cols[2] if len(numeric_cols) > 2 else numeric_cols[-1]
+        default_z_idx = numeric_cols.index(default_z)
+
         c1, c2, c3, c4, c5 = st.columns(5)
-        x_col = c1.selectbox("X axis", numeric_cols, index=0, key="flash_plot3d_x")
-        y_col = c2.selectbox("Y axis", numeric_cols, index=1, key="flash_plot3d_y")
-        z_col = c3.selectbox("Z axis", numeric_cols, index=2, key="flash_plot3d_z")
-        color_col = c4.selectbox("Color by", options=["None"] + numeric_cols + categorical_cols, key="flash_plot3d_color")
-        symbol_col = c5.selectbox("Group by (symbol)", options=["None"] + categorical_cols, key="flash_plot3d_group")
+        x_col = c1.selectbox("X axis", numeric_cols, index=default_x_idx, key="flash_plot3d_x")
+        y_col = c2.selectbox("Y axis", numeric_cols, index=default_y_idx, key="flash_plot3d_y")
+        z_col = c3.selectbox("Z axis", numeric_cols, index=default_z_idx, key="flash_plot3d_z")
+        color_col = c4.selectbox("Color by", options=color_options, index=default_color_idx, key="flash_plot3d_color")
+        color_scale = c5.selectbox("Color palette", options=color_scale_options, index=default_color_scale_idx, key="flash_plot3d_colorscale")
+
+        color_is_numeric = color_col in numeric_cols
 
         fig = px.scatter_3d(
             df,
@@ -295,7 +340,7 @@ def _plot_results(df: pd.DataFrame) -> None:
             y=y_col,
             z=z_col,
             color=None if color_col == "None" else color_col,
-            symbol=None if symbol_col == "None" else symbol_col,
+            color_continuous_scale=color_scale if color_is_numeric else None,
             hover_data=["Input Row", "Phase Status"],
         )
         fig.update_layout(height=650)
@@ -495,6 +540,7 @@ def render(composition: dict | None) -> None:
         if not points:
             st.warning("No valid pressure/temperature points found.")
         else:
+            progress = st.progress(0, text=f"Running flash calculations... 0/{len(points)}")
             with st.spinner(f"Running flash calculations for {len(points)} point(s)..."):
                 result_df, phase_comp_by_row, errors = _run_flash(
                     composition=composition,
@@ -504,7 +550,9 @@ def render(composition: dict | None) -> None:
                     temperature_unit=temperature_unit,
                     selected_phases=selected_phases,
                     selected_properties=selected_properties,
+                    progress_callback=lambda i, n: progress.progress(i / n, text=f"Running flash calculations... {i}/{n}"),
                 )
+            progress.empty()
 
             if result_df.empty:
                 st.error("No successful flash calculations.")
