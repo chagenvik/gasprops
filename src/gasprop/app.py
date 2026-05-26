@@ -5,7 +5,7 @@ from pathlib import Path
 import streamlit as st
 
 from .composition_input import composition_input, composition_io_controls
-from .views import comparison, multi, phase, single, surface, tables, uncertainty, validation
+from .views import comparison, flash, multi, phase, single, surface, tables, uncertainty, validation
 
 LOGO_PATH = Path(__file__).resolve().parents[2] / "assets" / "logo.png"
 
@@ -13,6 +13,7 @@ LOGO_PATH = Path(__file__).resolve().parents[2] / "assets" / "logo.png"
 VIEW_MAP = {
     "Single Calculation": single.render,
     "Multi-Point Calculation": multi.render,
+    "Flash Calculation": flash.render,
     "Property Tables": tables.render,
     "3D plot": surface.render,
     "Phase Envelope": phase.render,
@@ -56,7 +57,7 @@ def run_app() -> None:
     st.markdown(
         "Calculates thermodynamic and transport properties of natural gas mixtures using the "
         "AGA8 equation of state (GERG-2008 or DETAIL method). Supports single-point calculations, "
-        "multi-point tables, 3D surface plots, and phase envelope calculations via SRK/neqsim."
+        "multi-point tables, flash calculations, 3D surface plots, and phase envelope calculations via SRK/neqsim."
     )
     st.markdown(
         "Developed by **Equinor K-lab**, by Christian Hågenvik. This application is built on open-source libraries: "
@@ -86,6 +87,7 @@ def run_app() -> None:
             3. Pick a tab:
                - **Single Calculation** — properties at one P, T.
                - **Multi-Point Calculation** — properties at multiple pressure/temperature points.
+                    - **Flash Calculation** — NeqSim TP flash for single tables or P/T ranges, with gas/liquid outputs.
                - **Property Tables** — sweep over P/T grids; export to CSV/PDF.
                - **3D plot** — visualise a property over a P/T plane.
                - **Phase Envelope** — check the phase envelope with NeqSim.

@@ -18,6 +18,7 @@ streamlit run streamlit_app.py
 
 - Single Calculation
 - Multi-Point Calculation
+- Flash Calculation
 - Property Tables
 - 3D plot
 - Phase Envelope
