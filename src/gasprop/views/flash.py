@@ -44,6 +44,7 @@ PROPERTIES = {
 }
 
 DEFAULT_PROPERTIES = ["density", "molar_mass", "z", "speed_of_sound", "viscosity"]
+_STATE_FLASH = "gp_flash_result"
 
 _DEFAULT_POINTS = pd.DataFrame(
     {
@@ -211,7 +212,7 @@ def _run_flash(
 
             for phase_name in selected_phases:
                 row[f"{PHASE_LABELS[phase_name]} present"] = phase_fraction[phase_name] > 1e-10
-                row[f"{PHASE_LABELS[phase_name]} fraction [-]"] = phase_fraction[phase_name]
+                row[f"{PHASE_LABELS[phase_name]} mole fraction [-]"] = phase_fraction[phase_name]
                 for prop in selected_properties:
                     name, unit = PROPERTIES[prop]
                     key = f"{PHASE_LABELS[phase_name]} {name} [{unit}]"
@@ -485,33 +486,58 @@ def render(composition: dict | None) -> None:
             st.error(f"Range produces too many points ({len(points)}). Reduce ranges or increase step sizes.")
             return
 
-    run = st.button("Run flash calculations", type="primary", key="flash_run_btn")
-    if not run:
+    cached = st.session_state.get(_STATE_FLASH)
+    has_cache = cached is not None
+    run_label = "Run flash calculations" if not has_cache else "Re-run flash calculations"
+    run = st.button(run_label, type="primary", key="flash_run_btn")
+
+    if run:
+        if not points:
+            st.warning("No valid pressure/temperature points found.")
+        else:
+            with st.spinner(f"Running flash calculations for {len(points)} point(s)..."):
+                result_df, phase_comp_by_row, errors = _run_flash(
+                    composition=composition,
+                    points=points,
+                    eos_model=eos_model,
+                    pressure_unit=pressure_unit,
+                    temperature_unit=temperature_unit,
+                    selected_phases=selected_phases,
+                    selected_properties=selected_properties,
+                )
+
+            if result_df.empty:
+                st.error("No successful flash calculations.")
+            else:
+                st.session_state[_STATE_FLASH] = {
+                    "result_df": result_df,
+                    "phase_comp_by_row": phase_comp_by_row,
+                    "errors": errors,
+                    "eos_label": eos_label,
+                    "eos_model": eos_model,
+                    "pressure_unit": pressure_unit,
+                    "temperature_unit": temperature_unit,
+                }
+
+    state = st.session_state.get(_STATE_FLASH)
+    if state is None:
         return
 
-    if not points:
-        st.warning("No valid pressure/temperature points found.")
-        return
-
-    with st.spinner(f"Running flash calculations for {len(points)} point(s)..."):
-        result_df, phase_comp_by_row, errors = _run_flash(
-            composition=composition,
-            points=points,
-            eos_model=eos_model,
-            pressure_unit=pressure_unit,
-            temperature_unit=temperature_unit,
-            selected_phases=selected_phases,
-            selected_properties=selected_properties,
-        )
+    result_df = state["result_df"]
+    phase_comp_by_row = state["phase_comp_by_row"]
+    errors = state["errors"]
+    result_eos_label = state["eos_label"]
+    result_eos_model = state["eos_model"]
+    result_pressure_unit = state["pressure_unit"]
+    result_temperature_unit = state["temperature_unit"]
 
     if errors:
         with st.expander(f"{len(errors)} point(s) failed"):
             for err in errors:
                 st.error(err)
 
-    if result_df.empty:
-        st.error("No successful flash calculations.")
-        return
+    if not run:
+        st.caption("Showing most recent flash results. Click Re-run flash calculations to update.")
 
     n_liquid = int(result_df["Liquid present"].sum())
     if n_liquid > 0:
@@ -520,7 +546,8 @@ def render(composition: dict | None) -> None:
             icon="⚠️",
         )
 
-    st.success(f"Calculated {len(result_df)} point(s) with {eos_label}.")
+    st.success(f"Calculated {len(result_df)} point(s) with {result_eos_label}.")
+    st.caption("Phase fractions are reported as NeqSim phase mole fractions (beta), unitless [-].")
     st.dataframe(result_df, width='stretch', hide_index=True)
 
     csv_buffer = io.BytesIO()
@@ -528,7 +555,7 @@ def render(composition: dict | None) -> None:
     st.download_button(
         label="Download flash results (CSV)",
         data=csv_buffer.getvalue(),
-        file_name=f"flash_results_{eos_model}.csv",
+        file_name=f"flash_results_{result_eos_model}.csv",
         mime="text/csv",
         key="flash_dl_csv",
     )
@@ -536,7 +563,7 @@ def render(composition: dict | None) -> None:
     _plot_results(result_df)
     _render_phase_composition_tools(
         phase_comp_by_row=phase_comp_by_row,
-        pressure_unit=pressure_unit,
-        temperature_unit=temperature_unit,
+        pressure_unit=result_pressure_unit,
+        temperature_unit=result_temperature_unit,
         results_df=result_df,
     )
