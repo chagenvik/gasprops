@@ -1,6 +1,6 @@
 # gasprops
 
-Standalone Streamlit app for gas property analysis.
+Streamlit app for gas property analysis.
 
 ## Run locally
 
@@ -10,9 +10,10 @@ streamlit run streamlit_app.py
 
 ## App layout
 
-- **Left sidebar navigation** for all gas-property views
+- **Tabbed views** for all gas-property pages
 - **Shared AGA8 composition editor** at the top of the app
-- **Direct use of `pvtlib`, `neqsim`, and `uncertaintylib`**
+- **Direct use of `pvtlib`, `neqsim-python`, and `uncertaintylib`**
+- The AGA8 DETAIL and GERG-2008 implementations used through `pvtlib` are based on the official [NIST AGA8 reference repository](https://github.com/usnistgov/AGA8), via the Rust [aga8 crate](https://crates.io/crates/aga8)
 
 ## Included views
 

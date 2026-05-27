@@ -174,6 +174,11 @@ def run_app() -> None:
         "[uncertaintylib](https://github.com/equinor/uncertaintylib), and "
         "[neqsim-python](https://github.com/equinor/neqsim-python)."
     )
+    st.caption(
+        "The AGA8 DETAIL and GERG-2008 implementations used through pvtlib are based on the official "
+        "[NIST AGA8 reference repository](https://github.com/usnistgov/AGA8), via the Rust "
+        "[aga8 crate](https://crates.io/crates/aga8)."
+    )
 
     _require_legal_acknowledgement()
 
