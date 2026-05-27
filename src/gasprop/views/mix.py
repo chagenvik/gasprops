@@ -8,8 +8,8 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
+from ..composition_input import COMPONENTS as MAIN_TAB_COMPONENTS
 from ..composition import available_example_names, composition_from_csv_text, composition_to_csv, load_example_composition
-from ..domain import COMPONENTS
 from ..mix_logic import MixBasis, MixResult, mix_range, mix_two
 from utils.session_fluids import FORMAT_AGA8, list_session_fluids
 from utils.session_fluids_ui import render_temporary_save_button
@@ -37,13 +37,15 @@ _TOTAL_LABELS: dict[MixBasis, str] = {
 
 _SINGLE_STATE_KEY = "mix_single_result"
 _RANGE_STATE_KEY = "mix_range_results"
+_MAIN_COMPONENT_ORDER = list(MAIN_TAB_COMPONENTS.keys())
+_MAIN_COMPONENT_ORDER_INDEX = {name: idx for idx, name in enumerate(_MAIN_COMPONENT_ORDER)}
 
 
 def _default_custom_df() -> pd.DataFrame:
     return pd.DataFrame(
         {
-            "Component": list(COMPONENTS.keys()),
-            "Mol %": [100.0 if name == "C1" else 0.0 for name in COMPONENTS.keys()],
+            "Component": _MAIN_COMPONENT_ORDER,
+            "Mol %": [100.0 if name == "C1" else 0.0 for name in _MAIN_COMPONENT_ORDER],
         }
     )
 
@@ -229,7 +231,8 @@ def _render_mix_result(result: MixResult, key_prefix: str) -> None:
         ]
     )
     if not comp_df.empty:
-        comp_df = comp_df.sort_values("Mol %", ascending=False).reset_index(drop=True)
+        comp_df["_order"] = comp_df["Component"].map(lambda name: _MAIN_COMPONENT_ORDER_INDEX.get(name, 10**6))
+        comp_df = comp_df.sort_values("_order", ascending=True).drop(columns=["_order"]).reset_index(drop=True)
     st.dataframe(comp_df, width="stretch", hide_index=True)
 
     csv_text = composition_to_csv(result.composition_mol_percent)
@@ -414,9 +417,14 @@ def _render_range_mix(active_composition: dict[str, float]) -> None:
                     }
                 )
 
+        bulk_df = pd.DataFrame(bulk_rows)
+        if not bulk_df.empty:
+            bulk_df["_order"] = bulk_df["Component"].map(lambda name: _MAIN_COMPONENT_ORDER_INDEX.get(name, 10**6))
+            bulk_df = bulk_df.sort_values(["Mix label", "_order"], ascending=[True, True]).drop(columns=["_order"]).reset_index(drop=True)
+
         st.download_button(
             "Download all range results (CSV)",
-            data=pd.DataFrame(bulk_rows).to_csv(index=False).encode("utf-8"),
+            data=bulk_df.to_csv(index=False).encode("utf-8"),
             file_name="mix_range_results.csv",
             mime="text/csv",
             key="mix_range_bulk_download",
