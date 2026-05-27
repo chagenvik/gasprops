@@ -176,7 +176,7 @@ def run_app() -> None:
     st.info(
         "**NOTE:** The AGA8 property calculations are valid for single-phase gas only and do not account for phase boundaries. "
         "Use the **Phase Envelope** tab to check whether your operating conditions fall within the two-phase region "
-        "before interpreting the calculated properties.",
+        "before interpreting the calculated properties. For calculations in the two-phase region, use the **Flash Calculation** tab.",
         icon="ℹ️",
     )
 
@@ -218,6 +218,7 @@ def run_app() -> None:
             **Things to be aware of**
             - AGA8 properties assume **single-phase gas**. Always sanity-check your point
               against the phase envelope before reading out densities/viscosities.
+                        - For calculations in the **two-phase region**, use the **Flash Calculation** tab.
             - The DETAIL method is restricted to a smaller component set than GERG-2008;
               choose GERG-2008 if you have non-standard components such as H₂ or He.
             """
