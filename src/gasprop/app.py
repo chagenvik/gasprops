@@ -35,15 +35,18 @@ def _require_legal_acknowledgement() -> None:
 
     st.warning(
         "**Use at your own risk.** This app is provided as-is without warranty and is for informational use only. "
-        "It is not a certified engineering or operational decision tool. You are responsible for independent verification "
-        "before any safety-critical, operational, financial, or regulatory use.",
+        "It is not a certified engineering or operational decision tool. Review and accept the Terms of Use before use. "
+        "You are responsible for independent verification before any safety-critical, operational, financial, or regulatory use.",
         icon="⚠️",
     )
     accepted = st.checkbox(
-        "I understand and accept these terms for this browser session.",
+        "I have read and accept the Terms of Use and Legal Notice for this browser session.",
         key="legal_accept_checkbox",
     )
-    st.caption("License: MIT. See full text in the repository LICENSE.")
+    st.caption(
+        "Terms of Use: see TERMS_OF_USE.md in the repository. "
+        "License: MIT. See full text in the repository LICENSE."
+    )
 
     if accepted:
         st.session_state[accepted_key] = True
@@ -220,7 +223,7 @@ def run_app() -> None:
               against the phase envelope before reading out densities/viscosities.
                         - For calculations in the **two-phase region**, use the **Flash Calculation** tab.
             - The DETAIL method is restricted to a smaller component set than GERG-2008;
-              choose GERG-2008 if you have non-standard components such as H₂ or He.
+              GERG-2008 coveres a wider range of compositions, pressure and temperatures, and is normally the safer choice for natural gas mixtures.
             """
         )
 
@@ -242,7 +245,8 @@ def run_app() -> None:
     st.divider()
 
     st.info(
-        "**Disclaimer:** This software is provided **as-is**, without warranty of any kind, express or implied, "
+        "**Legal Notice (Warranty Disclaimer and Limitation of Liability):** This software is provided **as-is**, "
+        "without warranty of any kind, express or implied, "
         "including merchantability, fitness for a particular purpose, non-infringement, accuracy, or completeness. "
         "The app is for informational and educational use only and is not a certified engineering, safety, or "
         "operational decision tool. Results may be inaccurate, incomplete, or unsuitable for a specific use case. "
@@ -254,6 +258,9 @@ def run_app() -> None:
         "profit loss, production loss, or business interruption) arising from use of, or inability to use, this "
         "software, even if advised of the possibility of such damages. Use of this app constitutes acceptance of "
         "these terms."
+    )
+    st.markdown(
+        "**Terms of Use:** [See TERMS_OF_USE on GitHub](https://github.com/chagenvik/gasprops/blob/main/TERMS_OF_USE.md)."
     )
     st.markdown(
         "**License:** MIT - [See LICENSE on GitHub](https://github.com/chagenvik/gasprops/blob/main/LICENSE)."

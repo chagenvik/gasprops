@@ -46,4 +46,5 @@ tests/
 - This app is provided **as-is**, without warranty.
 - It is for informational use only and is **not** a certified engineering or operational decision tool.
 - Users are responsible for independent verification before any safety-critical, operational, financial, or regulatory use.
+- Terms of Use: see [TERMS_OF_USE.md](TERMS_OF_USE.md).
 - License: MIT (see [LICENSE](LICENSE)).
