@@ -41,6 +41,7 @@ tests/
 - Example gas compositions are bundled in `data/examples/`.
 - Imported compositions are normalized to the AGA8 composition table used by the original app.
 - The app is designed for Streamlit Community Cloud.
+- NeqSim-backed views require Java on the deployment target; Streamlit Cloud support is configured via `packages.txt`.
 
 ## Legal
 
