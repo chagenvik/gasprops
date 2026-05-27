@@ -9,6 +9,7 @@ import pandas as pd
 import streamlit as st
 
 from ..composition import available_example_names, composition_from_csv_text, composition_to_csv, load_example_composition
+from ..domain import COMPONENTS
 from ..mix_logic import MixBasis, MixResult, mix_range, mix_two
 from utils.session_fluids import FORMAT_AGA8, list_session_fluids
 from utils.session_fluids_ui import render_temporary_save_button
@@ -38,6 +39,53 @@ _SINGLE_STATE_KEY = "mix_single_result"
 _RANGE_STATE_KEY = "mix_range_results"
 
 
+def _default_custom_df() -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "Component": list(COMPONENTS.keys()),
+            "Mol %": [100.0 if name == "C1" else 0.0 for name in COMPONENTS.keys()],
+        }
+    )
+
+
+def _render_custom_composition_input(*, key_prefix: str, fluid_label: str) -> tuple[str, dict[str, float]] | None:
+    table_key = f"{key_prefix}_custom_table_data"
+    editor_key = f"{key_prefix}_custom_table_editor"
+
+    if table_key not in st.session_state:
+        st.session_state[table_key] = _default_custom_df()
+
+    st.caption(f"Enter custom AGA8 composition for {fluid_label}.")
+    edited = st.data_editor(
+        st.session_state[table_key],
+        key=editor_key,
+        width="stretch",
+        hide_index=True,
+        num_rows="fixed",
+        column_config={
+            "Component": st.column_config.TextColumn("Component", disabled=True, width="small"),
+            "Mol %": st.column_config.NumberColumn("Mol %", min_value=0.0, max_value=100.0, step=0.0001, format="%.4f", width="small"),
+        },
+    )
+    st.session_state[table_key] = edited
+
+    values = {str(row["Component"]): float(row["Mol %"] or 0.0) for _, row in edited.iterrows()}
+    total = float(sum(values.values()))
+    st.caption(f"Total: {total:.4f} mol%")
+    if total <= 0.0:
+        st.warning(f"{fluid_label}: enter at least one component above zero.")
+        return None
+    if abs(total - 100.0) > 0.01:
+        st.info(f"{fluid_label}: composition is auto-normalized during mixing.")
+
+    name = st.text_input(
+        f"{fluid_label} name",
+        value=f"Custom {fluid_label}",
+        key=f"{key_prefix}_custom_name",
+    )
+    return name.strip() or f"Custom {fluid_label}", values
+
+
 def _fluid_options_from_sources(active_composition: dict[str, float]) -> dict[str, dict[str, float]]:
     options: dict[str, dict[str, float]] = {
         "Current composition": dict(active_composition),
@@ -58,24 +106,49 @@ def _fluid_options_from_sources(active_composition: dict[str, float]) -> dict[st
     return options
 
 
-def _render_fluid_selectors(active_composition: dict[str, float]) -> tuple[str, dict[str, float], str, dict[str, float]] | None:
+def _render_fluid_selectors(
+    active_composition: dict[str, float],
+    *,
+    key_prefix: str,
+) -> tuple[str, dict[str, float], str, dict[str, float]] | None:
     options = _fluid_options_from_sources(active_composition)
     if len(options) < 2:
         st.warning("Need at least two valid AGA8 fluids. Save another fluid or use an example gas.")
         return None
 
-    labels = list(options.keys())
+    labels = list(options.keys()) + ["Custom composition"]
     col1, col2 = st.columns(2)
     with col1:
-        fluid1_name = st.selectbox("Fluid 1", options=labels, index=0, key="mix_fluid1")
+        fluid1_name = st.selectbox("Fluid 1", options=labels, index=0, key=f"{key_prefix}_fluid1")
     with col2:
         default_2 = 1 if len(labels) > 1 else 0
-        fluid2_name = st.selectbox("Fluid 2", options=labels, index=default_2, key="mix_fluid2")
+        fluid2_name = st.selectbox("Fluid 2", options=labels, index=default_2, key=f"{key_prefix}_fluid2")
 
-    if fluid1_name == fluid2_name:
+    fluid1_values: dict[str, float] | None
+    fluid2_values: dict[str, float] | None
+    fluid1_display_name = fluid1_name
+    fluid2_display_name = fluid2_name
+
+    if fluid1_name == "Custom composition":
+        custom_1 = _render_custom_composition_input(key_prefix=f"{key_prefix}_f1", fluid_label="Fluid 1")
+        if custom_1 is None:
+            return None
+        fluid1_display_name, fluid1_values = custom_1
+    else:
+        fluid1_values = options[fluid1_name]
+
+    if fluid2_name == "Custom composition":
+        custom_2 = _render_custom_composition_input(key_prefix=f"{key_prefix}_f2", fluid_label="Fluid 2")
+        if custom_2 is None:
+            return None
+        fluid2_display_name, fluid2_values = custom_2
+    else:
+        fluid2_values = options[fluid2_name]
+
+    if fluid1_display_name == fluid2_display_name:
         st.info("Select two different fluids to create a meaningful mix.")
 
-    return fluid1_name, options[fluid1_name], fluid2_name, options[fluid2_name]
+    return fluid1_display_name, fluid1_values, fluid2_display_name, fluid2_values
 
 
 def _render_basis_controls(key_prefix: str) -> tuple[MixBasis, dict[str, float]]:
@@ -198,7 +271,7 @@ def _parse_custom_ratios(text: str) -> list[float] | None:
 
 
 def _render_single_mix(active_composition: dict[str, float]) -> None:
-    selected = _render_fluid_selectors(active_composition)
+    selected = _render_fluid_selectors(active_composition, key_prefix="mix_single")
     if selected is None:
         return
 
@@ -240,7 +313,7 @@ def _render_single_mix(active_composition: dict[str, float]) -> None:
 
 
 def _render_range_mix(active_composition: dict[str, float]) -> None:
-    selected = _render_fluid_selectors(active_composition)
+    selected = _render_fluid_selectors(active_composition, key_prefix="mix_range")
     if selected is None:
         return
 

@@ -209,6 +209,7 @@ def run_app() -> None:
             VIEW_MAP[label](composition)
 
     st.divider()
+
     st.info(
         "**Disclaimer:** This software is provided **as-is**, without warranty of any kind, express or implied, "
         "including merchantability, fitness for a particular purpose, non-infringement, accuracy, or completeness. "
@@ -221,6 +222,8 @@ def run_app() -> None:
         "direct, indirect, incidental, special, exemplary, consequential, or other damages (including data loss, "
         "profit loss, production loss, or business interruption) arising from use of, or inability to use, this "
         "software, even if advised of the possibility of such damages. Use of this app constitutes acceptance of "
-        "these terms.\n\n"
-        "**License:** MIT — see `LICENSE`."
+        "these terms."
+    )
+    st.markdown(
+        "**License:** MIT - [See LICENSE on GitHub](https://github.com/chagenvik/gasprops/blob/main/LICENSE)."
     )

@@ -142,6 +142,8 @@ def render(composition: dict | None) -> None:
     st.markdown("""
     **Quality ranges defined in the AGA8 report no. 8 - part 2 (2017):**
 
+    **Reference:** AGA Report No. 8 Part 2 First Edition, Thermodynamic Properties of Natural Gas and Related Gases - Gerg-2008 Equation of State, 2017.
+
     - **Pipeline Quality Range** – Applicable to the DETAIL method. Pressure ≤ 350 bara, Temperature ≤ 177°C.
     - **Intermediate Quality Range** – Applicable to the GERG-2008 method. Allows wider componsition, pressure and temperature ranges. Pressure ≤ 700 bara, Temperature ≤ 427°C.
 

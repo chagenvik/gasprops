@@ -4,6 +4,12 @@ from dataclasses import dataclass
 
 from .domain import VALIDATION_LIMITS
 
+GROUPED_COMPONENTS: dict[str, tuple[str, ...]] = {
+    "iC4+nC4": ("iC4", "nC4"),
+    "iC5+nC5": ("iC5", "nC5"),
+    "nC8+nC9+nC10": ("nC8", "nC9", "nC10"),
+}
+
 
 @dataclass(frozen=True)
 class ValidationIssue:
@@ -20,7 +26,25 @@ def validate_composition(values: dict[str, float], mode: str = "GERG-2008") -> l
     total = sum(float(v) for v in values.values())
     if abs(total - 100.0) > 0.1:
         issues.append(ValidationIssue("composition", "TOTAL", f"Composition sums to {total:.3f}%, expected 100.0%", "warning"))
+
+    grouped_members = {name for members in GROUPED_COMPONENTS.values() for name in members}
+    for group_name, members in GROUPED_COMPONENTS.items():
+        low = sum(limits[name][0] for name in members)
+        high = sum(limits[name][1] for name in members)
+        value = sum(float(values.get(name, 0.0)) for name in members)
+        if value < low - 1e-9 or value > high + 1e-9:
+            issues.append(
+                ValidationIssue(
+                    "composition",
+                    group_name,
+                    f"{group_name} = {value:.3f}% is outside {low:.3f}%–{high:.3f}%",
+                    "warning",
+                )
+            )
+
     for name, (low, high) in limits.items():
+        if name in grouped_members:
+            continue
         value = float(values.get(name, 0.0))
         if value < low - 1e-9 or value > high + 1e-9:
             issues.append(ValidationIssue("composition", name, f"{name} = {value:.3f}% is outside {low:.3f}%–{high:.3f}%", "warning"))
