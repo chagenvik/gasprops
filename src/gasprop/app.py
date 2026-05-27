@@ -44,8 +44,9 @@ def _require_legal_acknowledgement() -> None:
         key="legal_accept_checkbox",
     )
     st.caption(
-        "Terms of Use: see TERMS_OF_USE.md in the repository. "
-        "License: MIT. See full text in the repository LICENSE."
+        "Terms of Use: "
+        "[TERMS_OF_USE](https://github.com/chagenvik/gasprops/blob/main/TERMS_OF_USE.md) · "
+        "License: [LICENSE](https://github.com/chagenvik/gasprops/blob/main/LICENSE)"
     )
 
     if accepted:
