@@ -5,7 +5,7 @@ from pathlib import Path
 import streamlit as st
 
 from .composition_input import composition_input, composition_io_controls
-from .views import comparison, flash, multi, phase, single, surface, tables, uncertainty, validation
+from .views import comparison, flash, mix, multi, phase, single, surface, tables, uncertainty, validation
 
 LOGO_PATH = Path(__file__).resolve().parents[2] / "assets" / "logo.png"
 
@@ -14,6 +14,7 @@ VIEW_MAP = {
     "Single Calculation": single.render,
     "Multi-Point Calculation": multi.render,
     "Flash Calculation": flash.render,
+    "Mix": mix.render,
     "Property Tables": tables.render,
     "3D plot": surface.render,
     "Phase Envelope": phase.render,
@@ -133,7 +134,7 @@ def run_app() -> None:
     st.markdown(
         "Calculates thermodynamic and transport properties of natural gas mixtures using the "
         "AGA8 equation of state (GERG-2008 or DETAIL method). Supports single-point calculations, "
-        "multi-point tables, flash calculations, 3D surface plots, and phase envelope calculations via SRK/neqsim."
+        "multi-point tables, flash calculations, fluid mixing, 3D surface plots, and phase envelope calculations via SRK/neqsim."
     )
     st.markdown(
         "Developed by **Equinor K-lab**, by Christian Hågenvik. This application is built on open-source libraries: "
@@ -164,6 +165,7 @@ def run_app() -> None:
                - **Single Calculation** — properties at one P, T.
                - **Multi-Point Calculation** — properties at multiple pressure/temperature points.
                     - **Flash Calculation** — NeqSim TP flash for single tables or P/T ranges, with gas/liquid outputs.
+                    - **Mix** — blend two AGA8 fluids by mass, mole, volume, or standard volume.
                - **Property Tables** — sweep over P/T grids; export to CSV/PDF.
                - **3D plot** — visualise a property over a P/T plane.
                - **Phase Envelope** — check the phase envelope with NeqSim.
@@ -181,6 +183,7 @@ def run_app() -> None:
             Use *💾 Temporary save fluid* to keep a composition in memory for the current
             browser session, and *Use saved fluid (session)* to reload it later. The library
             is cleared on tab close, refresh, or app restart, with a cap of 20 fluids per session.
+            The **Mix** tab can use current composition, example gases, and session-saved AGA8 fluids.
 
             **Things to be aware of**
             - AGA8 properties assume **single-phase gas**. Always sanity-check your point
