@@ -1,0 +1,134 @@
+from collections import OrderedDict
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class ComponentSpec:
+    name: str
+    mw_g_mol: float
+
+
+COMPONENTS = OrderedDict(
+    [
+        ("N2", ComponentSpec("N2", 28.0134)),
+        ("CO2", ComponentSpec("CO2", 44.0095)),
+        ("C1", ComponentSpec("C1", 16.04246)),
+        ("C2", ComponentSpec("C2", 30.06904)),
+        ("C3", ComponentSpec("C3", 44.09562)),
+        ("iC4", ComponentSpec("iC4", 58.1232)),
+        ("nC4", ComponentSpec("nC4", 58.1232)),
+        ("iC5", ComponentSpec("iC5", 72.15)),
+        ("nC5", ComponentSpec("nC5", 72.15)),
+        ("nC6", ComponentSpec("nC6", 86.177)),
+        ("nC7", ComponentSpec("nC7", 100.205)),
+        ("nC8", ComponentSpec("nC8", 114.232)),
+        ("nC9", ComponentSpec("nC9", 128.259)),
+        ("nC10", ComponentSpec("nC10", 142.286)),
+        ("H2", ComponentSpec("H2", 2.01588)),
+        ("O2", ComponentSpec("O2", 31.999)),
+        ("CO", ComponentSpec("CO", 28.01)),
+        ("H2O", ComponentSpec("H2O", 18.01528)),
+        ("H2S", ComponentSpec("H2S", 34.081)),
+        ("He", ComponentSpec("He", 4.003)),
+        ("Ar", ComponentSpec("Ar", 39.948)),
+    ]
+)
+
+COMPONENT_ALIASES = {
+    "methane": "C1",
+    "ch4": "C1",
+    "ethane": "C2",
+    "c2h6": "C2",
+    "propane": "C3",
+    "c3h8": "C3",
+    "isobutane": "iC4",
+    "i-butane": "iC4",
+    "n-butane": "nC4",
+    "isopentane": "iC5",
+    "n-pentane": "nC5",
+    "hexane": "nC6",
+    "heptane": "nC7",
+    "octane": "nC8",
+    "nonane": "nC9",
+    "decane": "nC10",
+}
+
+VALIDATION_LIMITS = {
+    "DETAIL": {
+        "pressure_bar": 350.0,
+        "temperature_c": 177.0,
+        "components": {
+            "C1": (70.0, 100.0),
+            "N2": (0.0, 20.0),
+            "CO2": (0.0, 20.0),
+            "C2": (0.0, 10.0),
+            "C3": (0.0, 3.5),
+            "iC4": (0.0, 0.75),
+            "nC4": (0.0, 0.75),
+            "iC5": (0.0, 0.25),
+            "nC5": (0.0, 0.25),
+            "nC6": (0.0, 0.1),
+            "nC7": (0.0, 0.05),
+            "nC8": (0.0, 0.0167),
+            "nC9": (0.0, 0.0167),
+            "nC10": (0.0, 0.0167),
+            "H2": (0.0, 10.0),
+            "O2": (0.0, 0.02),
+            "CO": (0.0, 3.0),
+            "H2O": (0.0, 0.015),
+            "H2S": (0.0, 0.02),
+            "He": (0.0, 0.5),
+            "Ar": (0.0, 0.02),
+        },
+    },
+    "GERG-2008": {
+        "pressure_bar": 700.0,
+        "temperature_c": 427.0,
+        "components": {
+            "C1": (30.0, 100.0),
+            "N2": (0.0, 55.0),
+            "CO2": (0.0, 30.0),
+            "C2": (0.0, 25.0),
+            "C3": (0.0, 14.0),
+            "iC4": (0.0, 3.0),
+            "nC4": (0.0, 3.0),
+            "iC5": (0.0, 0.25),
+            "nC5": (0.0, 0.25),
+            "nC6": (0.0, 0.2),
+            "nC7": (0.0, 0.1),
+            "nC8": (0.0, 0.0167),
+            "nC9": (0.0, 0.0167),
+            "nC10": (0.0, 0.0167),
+            "H2": (0.0, 40.0),
+            "O2": (0.0, 2.0),
+            "CO": (0.0, 13.0),
+            "H2O": (0.0, 0.02),
+            "H2S": (0.0, 27.0),
+            "He": (0.0, 0.5),
+            "Ar": (0.0, 0.05),
+        },
+    },
+}
+
+NEQSIM_NAMES: dict[str, str] = {
+    "N2": "nitrogen",
+    "CO2": "CO2",
+    "C1": "methane",
+    "C2": "ethane",
+    "C3": "propane",
+    "iC4": "i-butane",
+    "nC4": "n-butane",
+    "iC5": "i-pentane",
+    "nC5": "n-pentane",
+    "nC6": "n-hexane",
+    "nC7": "n-heptane",
+    "nC8": "n-octane",
+    "nC9": "n-nonane",
+    "nC10": "nC10",
+    "H2O": "water",
+    "He": "helium",
+    "H2": "hydrogen",
+    "Ar": "argon",
+    "CO": "CO",
+    "O2": "oxygen",
+    "H2S": "H2S",
+}
