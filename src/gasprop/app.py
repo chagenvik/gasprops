@@ -30,7 +30,12 @@ def run_app() -> None:
         """
         <style>
         [data-testid="stAppViewContainer"] {
-            background: linear-gradient(160deg, #0d1b2a 0%, #1b3a5c 40%, #2e6b8a 70%, #1b3a5c 100%);
+            background:
+                radial-gradient(circle at 10% 5%, rgba(173, 216, 255, 0.45) 0%, rgba(173, 216, 255, 0) 35%),
+                radial-gradient(circle at 90% 95%, rgba(122, 194, 255, 0.35) 0%, rgba(122, 194, 255, 0) 40%),
+                linear-gradient(145deg, #eef8ff 0%, #dff1ff 38%, #d2ebff 68%, #eaf7ff 100%);
+            background-size: 120% 120%;
+            animation: bg-shift 18s ease-in-out infinite;
         }
         [data-testid="stHeader"] {
             background: transparent;
@@ -39,11 +44,82 @@ def run_app() -> None:
             max-width: 1300px;
             padding-left: 3rem;
             padding-right: 3rem;
-            background-color: #ffffff;
+            padding-top: 1.4rem;
+            padding-bottom: 2.2rem;
+            background: rgba(255, 255, 255, 0.76);
+            border: 1px solid rgba(255, 255, 255, 0.85);
+            border-radius: 24px;
+            box-shadow: 0 18px 40px rgba(22, 90, 140, 0.16);
+            backdrop-filter: blur(6px);
         }
-        @media (prefers-color-scheme: dark) {
+
+        h1, h2, h3, h4 {
+            color: #083a5f;
+            letter-spacing: 0.01em;
+        }
+        p, li {
+            color: #194f73;
+        }
+
+        [data-testid="stTabs"] [data-baseweb="tab-list"] {
+            gap: 0.4rem;
+        }
+        [data-testid="stTabs"] [data-baseweb="tab"] {
+            border-radius: 999px;
+            border: 1px solid rgba(8, 88, 140, 0.16);
+            background: rgba(255, 255, 255, 0.85);
+            color: #19567d;
+            padding: 0.38rem 0.95rem;
+            transition: all 0.2s ease;
+        }
+        [data-testid="stTabs"] [aria-selected="true"] {
+            background: linear-gradient(120deg, #0f8bd5 0%, #35b7ff 100%);
+            color: white;
+            border-color: rgba(8, 114, 180, 0.45);
+            box-shadow: 0 8px 18px rgba(27, 125, 183, 0.25);
+        }
+
+        .stButton > button {
+            border: 0;
+            border-radius: 12px;
+            background: linear-gradient(120deg, #0f8bd5 0%, #2fb7ff 100%);
+            color: white;
+            box-shadow: 0 8px 18px rgba(18, 126, 191, 0.24);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .stButton > button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 12px 22px rgba(18, 126, 191, 0.28);
+        }
+
+        [data-testid="stAlert"] {
+            border-radius: 14px;
+            border: 1px solid rgba(20, 105, 155, 0.2);
+            background: rgba(255, 255, 255, 0.78);
+            box-shadow: 0 8px 18px rgba(19, 103, 154, 0.12);
+        }
+
+        @keyframes bg-shift {
+            0% { background-position: 0% 0%; }
+            50% { background-position: 100% 100%; }
+            100% { background-position: 0% 0%; }
+        }
+
+        @media (max-width: 900px) {
             .block-container {
-                background-color: #0e1117;
+                border-radius: 16px;
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+            [data-testid="stTabs"] [data-baseweb="tab"] {
+                padding: 0.35rem 0.7rem;
+                font-size: 0.86rem;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            [data-testid="stAppViewContainer"] {
+                animation: none;
             }
         }
         </style>
