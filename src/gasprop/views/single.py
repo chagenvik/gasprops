@@ -7,6 +7,8 @@ import pandas as pd
 import pvtlib
 import streamlit as st
 
+from ..composition_input import COMPONENTS as MAIN_TAB_COMPONENTS
+
 # ── Property catalogue ─────────────────────────────────────────────────────────
 PROPERTIES = {
     "rho":    ("Mass Density",              "kg/m³",        "{:.5f}"),
@@ -22,6 +24,16 @@ PROPERTIES = {
     "jt":     ("Joule-Thomson Coefficient", "K/Pa",         "{:.8f}"),
     "mm":     ("Molar Mass",                "g/mol",        "{:.4f}"),
 }
+
+_MAIN_COMPONENT_ORDER = list(MAIN_TAB_COMPONENTS.keys())
+_MAIN_COMPONENT_ORDER_INDEX = {name: idx for idx, name in enumerate(_MAIN_COMPONENT_ORDER)}
+
+
+def _ordered_nonzero_mol_percent(gas_composition: dict[str, float]) -> list[tuple[str, float]]:
+    """Return non-zero composition items ordered as in the main composition tab."""
+    rows = [(k, float(v) * 100.0) for k, v in gas_composition.items() if float(v) > 0.0]
+    rows.sort(key=lambda kv: _MAIN_COMPONENT_ORDER_INDEX.get(kv[0], 10**6))
+    return rows
 
 
 def render(composition: dict | None):
@@ -102,11 +114,11 @@ def render(composition: dict | None):
     st.dataframe(pd.DataFrame(rows), width='stretch', hide_index=True)
 
     # ── CSV download ───────────────────────────────────────────────────────────
-    norm_comp = {k: round(v * 100, 6) for k, v in result["gas_composition"].items() if v > 0}
+    norm_comp = _ordered_nonzero_mol_percent(result["gas_composition"])
     csv_rows = [{"Property": name, "Symbol": key, "Value": float(fmt.format(result[key])), "Unit": unit}
                 for key, (name, unit, fmt) in PROPERTIES.items()]
-    comp_rows = [{"Property": f"Composition – {k}", "Symbol": k, "Value": v, "Unit": "mol%"}
-                 for k, v in norm_comp.items()]
+    comp_rows = [{"Property": f"Composition – {k}", "Symbol": k, "Value": round(v, 6), "Unit": "mol%"}
+                 for k, v in norm_comp]
     csv_df = pd.DataFrame(csv_rows + comp_rows)
     st.download_button(
         label="Download results (CSV)",
@@ -117,7 +129,11 @@ def render(composition: dict | None):
     )
 
     with st.expander("Normalised composition used in calculation"):
-        comp_used = {k: f"{v * 100:.4f} mol%" for k, v in result["gas_composition"].items() if v > 0}
-        comp_df = pd.DataFrame.from_dict(comp_used, orient="index", columns=["mol%"])
-        comp_df.index.name = "Component"
-        st.dataframe(comp_df, width='stretch')
+        ordered = _ordered_nonzero_mol_percent(result["gas_composition"])
+        comp_df = pd.DataFrame(
+            {
+                "Component": [k for k, _ in ordered],
+                "mol%": [f"{v:.4f} mol%" for _, v in ordered],
+            }
+        )
+        st.dataframe(comp_df, width='stretch', hide_index=True)

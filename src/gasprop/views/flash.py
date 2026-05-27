@@ -10,6 +10,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
+from ..composition_input import COMPONENTS as MAIN_TAB_COMPONENTS
 from ..composition_input import export_composition_values_to_canonical_csv
 from ..domain import NEQSIM_NAMES as _NEQSIM_NAMES
 from utils.session_fluids import FORMAT_AGA8
@@ -54,6 +55,9 @@ _DEFAULT_POINTS = pd.DataFrame(
         "Temperature": [20.0, 20.0, 20.0, 20.0],
     }
 )
+
+_MAIN_COMPONENT_ORDER = list(MAIN_TAB_COMPONENTS.keys())
+_MAIN_COMPONENT_ORDER_INDEX = {name: idx for idx, name in enumerate(_MAIN_COMPONENT_ORDER)}
 
 
 def _inverse_component_map() -> dict[str, str]:
@@ -379,7 +383,10 @@ def _render_phase_composition_tools(
             "Component": list(selected_composition.keys()),
             "MolePercent": list(selected_composition.values()),
         }
-    ).sort_values("MolePercent", ascending=False)
+    )
+    if not comp_df.empty:
+        comp_df["_order"] = comp_df["Component"].map(lambda name: _MAIN_COMPONENT_ORDER_INDEX.get(name, 10**6))
+        comp_df = comp_df.sort_values("_order", ascending=True).drop(columns=["_order"]).reset_index(drop=True)
     st.dataframe(comp_df, width='stretch', hide_index=True)
 
     row_data = results_df[results_df["Input Row"] == selected_row].iloc[0]

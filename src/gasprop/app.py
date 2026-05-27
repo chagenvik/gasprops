@@ -24,6 +24,34 @@ VIEW_MAP = {
 }
 
 
+def _require_legal_acknowledgement() -> None:
+    """Require user acknowledgement of use-at-own-risk terms once per browser session."""
+    accepted_key = "legal_acknowledged_session"
+    if accepted_key not in st.session_state:
+        st.session_state[accepted_key] = False
+
+    if st.session_state[accepted_key]:
+        return
+
+    st.warning(
+        "**Use at your own risk.** This app is provided as-is without warranty and is for informational use only. "
+        "It is not a certified engineering or operational decision tool. You are responsible for independent verification "
+        "before any safety-critical, operational, financial, or regulatory use.",
+        icon="⚠️",
+    )
+    accepted = st.checkbox(
+        "I understand and accept these terms for this browser session.",
+        key="legal_accept_checkbox",
+    )
+    st.caption("License: MIT. See full text in the repository LICENSE.")
+
+    if accepted:
+        st.session_state[accepted_key] = True
+        st.rerun()
+
+    st.stop()
+
+
 def run_app() -> None:
     """Render the main GasProps app layout and tabs."""
     st.set_page_config(page_title="GasProps", page_icon="🧪", layout="wide")
@@ -142,6 +170,8 @@ def run_app() -> None:
         "[uncertaintylib](https://github.com/equinor/uncertaintylib), and "
         "[neqsim-python](https://github.com/equinor/neqsim-python)."
     )
+
+    _require_legal_acknowledgement()
 
     st.info(
         "**NOTE:** The AGA8 property calculations are valid for single-phase gas only and do not account for phase boundaries. "
