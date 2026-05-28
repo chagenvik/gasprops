@@ -282,11 +282,13 @@ def render(composition: dict | None) -> None:
     st.subheader("Uncertainty Analysis")
     st.caption(
         "Propagate compositional and P/T measurement uncertainties to AGA8 gas properties "
-        "using the GUM sensitivity-coefficient method and Monte Carlo simulation."
+        "using the GUM sensitivity-coefficient method and Monte Carlo simulation. "
+        "Only input uncertainties are included; model uncertainties in GERG-2008 and DETAIL are not."
     )
     st.info(
         "**⚠️ All uncertainty inputs must be entered as one standard deviation (1σ, k=1).** "
-        "The expanded uncertainty at coverage factor k=2 (≈ 95 % confidence) is reported in the results.",
+        "The expanded uncertainty at coverage factor k=2 (≈ 95 % confidence) is reported in the results. "
+        "These results reflect input uncertainty only, not model-form uncertainty.",
         icon="ℹ️",
     )
     st.markdown(
