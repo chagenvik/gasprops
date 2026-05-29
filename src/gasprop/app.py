@@ -160,8 +160,8 @@ def run_app() -> None:
         "AGA8 calculations are valid for **single-phase gas** and use the **21-component AGA8 set**."
     )
     st.markdown(
-        "The **Flash Calculation** and **Phase Envelope** tabs are powered by **NeqSim** (separate EOS workflows), "
-        "and are visually highlighted to distinguish them from AGA8-based tabs."
+        "The **Flash Calculation** and **Phase Envelope** tabs are using **NeqSim**, which supports multiple phases through various EoS. "
+        "These tabs are visually highlighted to distinguish them from the AGA8-based tabs."
     )
     st.markdown(
         "Developed by **Equinor K-lab**, by Christian Hågenvik. This application is built on open-source libraries: "
