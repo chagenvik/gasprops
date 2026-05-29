@@ -65,11 +65,26 @@ EXTRA_COMPONENTS: dict[str, str] = {
 
 COMPONENTS: dict[str, str] = {**STD_COMPONENTS, **EXTRA_COMPONENTS}
 
-_DEFAULTS: dict[str, float] = {"C1": 100.0}
+_DEFAULT_EXAMPLE_FILENAME = "lean_gas.csv"
+_FALLBACK_DEFAULTS: dict[str, float] = {"C1": 100.0}
 
 from .domain import COMPONENTS as _COMP_SPECS
 
 _FALLBACK_COMPONENT_MW: dict[str, float] = {k: spec.mw_g_mol for k, spec in _COMP_SPECS.items()}
+
+
+@lru_cache(maxsize=1)
+def _default_composition_values() -> dict[str, float]:
+    """Return startup defaults, preferring the lean-gas example."""
+    fallback = {component: float(_FALLBACK_DEFAULTS.get(component, 0.0)) for component in COMPONENTS}
+    default_path = _COMPOSITIONS_DIR / _DEFAULT_EXAMPLE_FILENAME
+    if not default_path.exists():
+        return fallback
+    try:
+        values, _, _ = load_composition_values_from_csv(default_path)
+    except Exception:
+        return fallback
+    return normalize_composition_values(values)
 
 
 @lru_cache(maxsize=1)
@@ -216,7 +231,7 @@ def _active_values(key_prefix: str) -> dict[str, float]:
 
 def _init_session_state(key_prefix: str) -> None:
     """Initialize composition-related session state values."""
-    defaults = {comp: _DEFAULTS.get(comp, 0.0) for comp in COMPONENTS}
+    defaults = _default_composition_values()
     for source in (_EDITABLE_SOURCE, _EXAMPLE_SOURCE):
         session_key = _ss_key(key_prefix, source=source)
         if session_key not in st.session_state:
