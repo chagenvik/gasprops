@@ -3,6 +3,6 @@ pandas>=2.0
 numpy>=1.26
 plotly>=5.20
 matplotlib>=3.8
-pvtlib>=1.14.4
+pvtlib>=1.14.5
 neqsim>=3.9.0
 uncertaintylib>=1.1.2
