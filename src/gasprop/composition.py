@@ -103,6 +103,10 @@ def available_example_names() -> list[str]:
             "rich_gas_03",
             "rich_gas_04",
             "hydrogen_blend",
+            "air",
+            "pure_n2",
+            "pure_co2",
+            "pure_h2",
         ]
         available = {path.stem for path in EXAMPLE_DIR.glob("*.csv")}
         ordered = [name for name in preferred if name in available]

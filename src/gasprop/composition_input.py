@@ -235,12 +235,25 @@ def _available_example_paths() -> dict[str, str]:
         "rich_gas_02.csv",
         "rich_gas_03.csv",
         "rich_gas_04.csv",
+        "hydrogen_blend.csv",
+        "air.csv",
+        "pure_n2.csv",
+        "pure_co2.csv",
+        "pure_h2.csv",
     ]
     ordered_filenames = [name for name in preferred_order if name in filenames]
     ordered_filenames.extend(sorted(filenames - set(ordered_filenames)))
+    display_name_overrides = {
+        "pure_n2.csv": "Pure N2",
+        "pure_co2.csv": "Pure CO2",
+        "pure_h2.csv": "Pure H2",
+    }
     return OrderedDict(
         (
-            os.path.splitext(filename)[0].replace("_", " ").title(),
+            display_name_overrides.get(
+                filename,
+                os.path.splitext(filename)[0].replace("_", " ").title(),
+            ),
             os.path.join(example_dir, filename),
         )
         for filename in ordered_filenames
