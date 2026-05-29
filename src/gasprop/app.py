@@ -178,8 +178,8 @@ def run_app() -> None:
     _render_terms_notice()
 
     st.info(
-        "**Calculation scope:** Blue tabs use AGA8 DETAIL/GERG and are valid for single-phase gas within the AGA8 component set. "
-        "Teal-highlighted tabs on the right (**Flash Calculation** and **Phase Envelope**) use NeqSim workflows for phase-behavior analysis.",
+        "**Calculation scope:** Most tabs use AGA8 DETAIL/GERG and are valid for single-phase gas within the AGA8 component set. "
+        "The tabs on the right (**Flash Calculation** and **Phase Envelope**) use NeqSim workflows for phase-behavior analysis.",
         icon="ℹ️",
     )
 
