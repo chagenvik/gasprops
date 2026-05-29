@@ -37,6 +37,7 @@ PROPERTIES = {
 }
 
 DEFAULT_PROPERTIES = ["rho", "z", "w", "kappa", "mm"]
+MAX_MONTE_CARLO_RUNS = 100_000
 
 COMP_MODELS = {
     "Manual": None,
@@ -241,6 +242,15 @@ def _render_mc_results(mc_df: pd.DataFrame, mc_stats: pd.DataFrame, selected_pro
         st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
     st.markdown("#### Monte Carlo Distributions")
+    histogram_bins = st.slider(
+        "Histogram bins",
+        min_value=10,
+        max_value=200,
+        value=100,
+        step=5,
+        key="unc_mc_hist_bins",
+        help="Adjust the number of bins used in Monte Carlo distribution histograms.",
+    )
     for prop in selected_props:
         if prop not in mc_df.columns:
             continue
@@ -254,7 +264,7 @@ def _render_mc_results(mc_df: pd.DataFrame, mc_stats: pd.DataFrame, selected_pro
         fig = go.Figure()
         fig.add_trace(go.Histogram(
             x=vals,
-            nbinsx=60,
+            nbinsx=histogram_bins,
             name="MC samples",
             marker_color="#1f77b4",
             opacity=0.75,
@@ -474,7 +484,9 @@ def render(composition: dict | None) -> None:
     with col_std:
         run_std = st.button("▶ Run standard uncertainty (GUM)", type="primary", key="unc_run_std")
     with col_mc_n:
-        mc_n = st.number_input("MC samples", min_value=100, max_value=1_000_000,
+        if st.session_state.get("unc_mc_n", 10_000) > MAX_MONTE_CARLO_RUNS:
+            st.session_state["unc_mc_n"] = MAX_MONTE_CARLO_RUNS
+        mc_n = st.number_input("MC samples", min_value=100, max_value=MAX_MONTE_CARLO_RUNS,
                                value=10_000, step=1, key="unc_mc_n")
     with col_mc:
         run_mc = st.button(f"▶ Run Monte Carlo (n = {mc_n:,})", key="unc_run_mc")
@@ -513,6 +525,7 @@ def render(composition: dict | None) -> None:
                     st.error(f"Standard uncertainty calculation failed: {exc}")
 
         if run_mc:
+            mc_n = min(int(mc_n), MAX_MONTE_CARLO_RUNS)
             with st.spinner(f"Running Monte Carlo simulation (n = {mc_n:,})…"):
                 try:
                     mc_df = uf.monte_carlo_simulation(unc_input, calc_fn, n=int(mc_n))
