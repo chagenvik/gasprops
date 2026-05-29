@@ -424,11 +424,6 @@ def render(composition: dict | None) -> None:
         st.info("Enter a valid composition above to enable flash calculations.")
         return
 
-    st.info(
-        "Only the AGA8 default component set is supported in this module because it reuses the shared AGA8 composition input.",
-        icon="ℹ️",
-    )
-
     c1, c2, c3 = st.columns(3)
     eos_label = c1.selectbox("Equation of state", options=list(EOS_OPTIONS.keys()), index=0, key="flash_eos")
     pressure_unit = c2.selectbox("Pressure unit", ["bara", "barg", "kPa", "MPa"], index=0, key="flash_p_unit")

@@ -13,14 +13,14 @@ LOGO_PATH = Path(__file__).resolve().parents[2] / "assets" / "logo.png"
 VIEW_MAP = {
     "Single Calculation": single.render,
     "Multi-Point Calculation": multi.render,
-    "Flash Calculation": flash.render,
     "Mix": mix.render,
     "Property Tables": tables.render,
     "3D plot": surface.render,
-    "Phase Envelope": phase.render,
     "Uncertainty Analysis": uncertainty.render,
     "AGA8 EoS Comparison": comparison.render,
     "AGA8 Validation": validation.render,
+    "Flash Calculation": flash.render,
+    "Phase Envelope": phase.render,
 }
 
 
@@ -89,6 +89,21 @@ def run_app() -> None:
             box-shadow: 0 8px 18px rgba(27, 125, 183, 0.25);
         }
 
+        /* Highlight NeqSim-backed tabs (Flash + Phase Envelope) */
+        [data-testid="stTabs"] [data-baseweb="tab"]:nth-child(9),
+        [data-testid="stTabs"] [data-baseweb="tab"]:nth-child(10) {
+            border-color: rgba(15, 126, 140, 0.3);
+            background: rgba(234, 249, 250, 0.95);
+            color: #0f6773;
+        }
+        [data-testid="stTabs"] [data-baseweb="tab"]:nth-child(9)[aria-selected="true"],
+        [data-testid="stTabs"] [data-baseweb="tab"]:nth-child(10)[aria-selected="true"] {
+            background: linear-gradient(120deg, #0f8bd5 0%, #14a99a 100%);
+            color: white;
+            border-color: rgba(13, 122, 133, 0.5);
+            box-shadow: 0 8px 18px rgba(16, 132, 143, 0.25);
+        }
+
         .stButton > button {
             border: 0;
             border-radius: 12px;
@@ -141,9 +156,12 @@ def run_app() -> None:
         with logo_col:
             st.image(str(LOGO_PATH), width=920)
     st.markdown(
-        "Calculates thermodynamic and transport properties of natural gas mixtures using the "
-        "AGA8 equation of state (GERG-2008 or DETAIL method). Supports single-point calculations, "
-        "multi-point tables, flash calculations, fluid mixing, 3D surface plots, and phase envelope calculations via SRK/neqsim."
+        "Calculates gas properties with **AGA8 DETAIL / GERG-2008** as the primary basis for most workflows. "
+        "AGA8 calculations are valid for **single-phase gas** and use the **21-component AGA8 set**."
+    )
+    st.markdown(
+        "The **Flash Calculation** and **Phase Envelope** tabs are powered by **NeqSim** (separate EOS workflows), "
+        "and are visually highlighted to distinguish them from AGA8-based tabs."
     )
     st.markdown(
         "Developed by **Equinor K-lab**, by Christian Hågenvik. This application is built on open-source libraries: "
@@ -160,17 +178,18 @@ def run_app() -> None:
     _render_terms_notice()
 
     st.info(
-        "**NOTE:** The AGA8 property calculations are valid for single-phase gas only and do not account for phase boundaries. "
-        "Use the **Phase Envelope** tab to check whether your operating conditions fall within the two-phase region "
-        "before interpreting the calculated properties. For calculations in the two-phase region, use the **Flash Calculation** tab.",
+        "**Calculation scope:** Blue tabs use AGA8 DETAIL/GERG and are valid for single-phase gas within the AGA8 component set. "
+        "Teal-highlighted tabs on the right (**Flash Calculation** and **Phase Envelope**) use NeqSim workflows for phase-behavior analysis.",
         icon="ℹ️",
     )
 
     with st.expander("📖 User guide", expanded=False):
         st.markdown(
             """
-            Computes thermodynamic and transport properties of natural gas mixtures using the
-            AGA8 equation of state (GERG-2008 or DETAIL).
+                Computes thermodynamic and transport properties using two calculation engines:
+
+                - **AGA8 DETAIL / GERG-2008** for most property workflows (single-phase gas scope)
+                - **NeqSim** for phase-behavior workflows (Flash Calculation and Phase Envelope)
 
             **How to use**
             1. Enter the gas composition in the table to the right (units: mol%).
@@ -181,17 +200,17 @@ def run_app() -> None:
                - **Single Calculation** — properties at one P, T.
                - **Multi-Point Calculation** — properties at multiple pressure/temperature points.
                     - **Flash Calculation** — NeqSim TP flash for single tables or P/T ranges, with gas/liquid outputs.
+                    - **Phase Envelope** — phase-boundary analysis with NeqSim.
                     - **Mix** — blend two AGA8 fluids by mass, mole, volume, or standard volume.
                - **Property Tables** — sweep over P/T grids; export to CSV/PDF.
                - **3D plot** — visualise a property over a P/T plane.
-               - **Phase Envelope** — check the phase envelope with NeqSim.
                - **Uncertainty Analysis** — propagate composition and P/T uncertainty.
                - **AGA8 EoS Comparison** — compare AGA8 calculation modes.
                - **AGA8 Validation** — check composition according to quality ranges in the AGA8 report.
             4. The composition you enter is shared across all tabs.
 
             **Composition format (AGA8)**
-            This tool only accepts the **AGA8 component set**: standard natural-gas
+                This app accepts only the **21-component AGA8 set**: standard natural-gas
             components plus H₂O, He, H₂, Ar, CO, O₂, H₂S. Heavy fractions are the defined
             normal-alkanes nC6–nC10 (no pseudo C6+ components).
 
