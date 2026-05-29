@@ -186,46 +186,42 @@ def run_app() -> None:
     with st.expander("📖 User guide", expanded=False):
         st.markdown(
             """
-                Computes thermodynamic and transport properties using two calculation engines:
+Computes thermodynamic and transport properties using two calculation engines:
 
-                - **AGA8 DETAIL / GERG-2008** for most property workflows (single-phase gas scope)
-                - **NeqSim** for phase-behavior workflows (Flash Calculation and Phase Envelope)
+- **AGA8 DETAIL / GERG-2008** for most property workflows (single-phase gas scope)
+- **NeqSim** for phase-behavior workflows (Flash Calculation and Phase Envelope)
 
-            **How to use**
-            1. Enter the gas composition in the table to the right (units: mol%).
-            2. Use the controls in the left panel to **Set to zero**, **Normalize**, or import
-               via **CSV**. You can also load a previously saved session fluid via
-               *Use saved fluid (session)* — see "Saved fluids" below.
-            3. Pick a tab:
-               - **Single Calculation** — properties at one P, T.
-               - **Multi-Point Calculation** — properties at multiple pressure/temperature points.
-                    - **Flash Calculation** — NeqSim TP flash for single tables or P/T ranges, with gas/liquid outputs.
-                    - **Phase Envelope** — phase-boundary analysis with NeqSim.
-                    - **Mix** — blend two AGA8 fluids by mass, mole, volume, or standard volume.
-               - **Property Tables** — sweep over P/T grids; export to CSV/PDF.
-               - **3D plot** — visualise a property over a P/T plane.
-               - **Uncertainty Analysis** — propagate composition and P/T uncertainty.
-               - **AGA8 EoS Comparison** — compare AGA8 calculation modes.
-               - **AGA8 Validation** — check composition according to quality ranges in the AGA8 report.
-            4. The composition you enter is shared across all tabs.
+**How to use**
+1. Enter the gas composition in the table to the right (units: mol%).
+2. Use the controls in the left panel to **Set to zero**, **Normalize**, or import via **CSV**.
+   You can also load a previously saved session fluid via *Use saved fluid (session)*.
+3. Pick a tab:
+   - **Single Calculation** — properties at one P, T.
+   - **Multi-Point Calculation** — properties at multiple pressure/temperature points.
+   - **Mix** — blend two AGA8 fluids by mass, mole, volume, or standard volume.
+   - **Property Tables** — sweep over P/T grids; export to CSV/PDF.
+   - **3D plot** — visualise a property over a P/T plane.
+   - **Uncertainty Analysis** — propagate composition and P/T uncertainty.
+   - **AGA8 EoS Comparison** — compare AGA8 calculation modes.
+   - **AGA8 Validation** — check composition according to quality ranges in the AGA8 report.
+   - **Flash Calculation** — NeqSim TP flash for single tables or P/T ranges, with gas/liquid outputs.
+   - **Phase Envelope** — phase-boundary analysis with NeqSim.
+4. The composition you enter is shared across all tabs.
 
-            **Composition format (AGA8)**
-                This app accepts only the **21-component AGA8 set**: standard natural-gas
-            components plus H₂O, He, H₂, Ar, CO, O₂, H₂S. Heavy fractions are the defined
-            normal-alkanes nC6–nC10 (no pseudo C6+ components).
+**Composition format (AGA8)**
+This app accepts only the **21-component AGA8 set**: standard natural-gas components plus H₂O, He, H₂, Ar, CO, O₂, H₂S.
+Heavy fractions are the defined normal-alkanes nC6–nC10 (no pseudo C6+ components).
 
-            **Saved fluids**
-            Use *💾 Temporary save fluid* to keep a composition in memory for the current
-            browser session, and *Use saved fluid (session)* to reload it later. The library
-            is cleared on tab close, refresh, or app restart, with a cap of 20 fluids per session.
-            The **Mix** tab can use current composition, example gases, and session-saved AGA8 fluids.
+**Saved fluids**
+Use *💾 Temporary save fluid* to keep a composition in memory for the current browser session,
+and *Use saved fluid (session)* to reload it later. The library is cleared on tab close, refresh,
+or app restart, with a cap of 20 fluids per session. The **Mix** tab can use current composition,
+example gases, and session-saved AGA8 fluids.
 
-            **Things to be aware of**
-            - AGA8 properties assume **single-phase gas**. Always sanity-check your point
-              against the phase envelope before reading out densities/viscosities.
-                        - For calculations in the **two-phase region**, use the **Flash Calculation** tab.
-            - The DETAIL method is restricted to a smaller component set than GERG-2008;
-              GERG-2008 coveres a wider range of compositions, pressure and temperatures, and is normally the safer choice for natural gas mixtures.
+**Things to be aware of**
+- AGA8 properties assume **single-phase gas**. Always sanity-check your point against the phase envelope before reading out densities/viscosities.
+- For calculations in the **two-phase region**, use the **Flash Calculation** tab.
+- The DETAIL method is restricted to a smaller component set than GERG-2008; GERG-2008 covers a wider range of compositions, pressure, and temperature, and is normally the safer choice for natural gas mixtures.
             """
         )
 
