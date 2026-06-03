@@ -142,6 +142,7 @@ def render(composition: dict | None) -> None:
 
         t_mode = st.radio("Temperature mode",
                           ["Manual", "From cricondentherm"],
+                          index=1,
                           horizontal=True, key="ecmp_t_mode")
 
         if t_mode == "Manual":
@@ -226,6 +227,25 @@ def render(composition: dict | None) -> None:
             )
 
     if run_clicked:
+        # If "From cricondentherm" mode is selected and cricondentherm hasn't been calculated yet, calculate it first
+        if t_mode == "From cricondentherm":
+            cct_eos = st.session_state.get("ecmp_cct_eos") or list(_CCT_EOS_OPTIONS.keys())[0]
+            t_margin = st.session_state.get("ecmp_cct_margin", 10.0)
+            cct_cache_key = f"ecmp_cct_{_comp_key(composition)}_{cct_eos}"
+            cct_val = st.session_state.get(cct_cache_key)
+            
+            if cct_val is None:
+                with st.spinner("Calculating cricondentherm (neqsim)…"):
+                    try:
+                        cct_val = _calc_cricondentherm(composition, cct_eos)
+                        st.session_state[cct_cache_key] = cct_val
+                    except Exception as exc:
+                        st.error(f"Cricondentherm calculation failed: {exc}")
+                        return
+            
+            # Use cricondentherm to set temperature
+            temperature = cct_val + t_margin if t_unit == "C" else cct_val + t_margin + 273.15
+        
         pressures = list(np.linspace(p_min, p_max, n_pts))
         with st.spinner("Calculating GERG-2008 and DETAIL properties…"):
             try:
