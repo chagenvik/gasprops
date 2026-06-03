@@ -182,6 +182,44 @@ def _normalize_current_composition_values(key_prefix: str, values: dict[str, flo
     )
 
 
+def distribute_c6_plus(values: dict[str, float]) -> dict[str, float]:
+    """
+    Distribute nC6 into heavier components using fixed split fractions.
+    
+    Distribution fractions:
+      nC6: 50.0 %, nC7: 30.0 %, nC8: 12.5 %, nC9: 5.0 %, nC10: 2.5 %
+    
+    For example, if nC6 is 0.5 mol%, the result will be:
+      nC6: 0.25, nC7: 0.15, nC8: 0.0625, nC9: 0.025, nC10: 0.0125 mol%
+    """
+    # Fixed distribution fractions for C6+
+    C6_PLUS_FRACTIONS = {
+        "nC6": 0.50,
+        "nC7": 0.30,
+        "nC8": 0.125,
+        "nC9": 0.05,
+        "nC10": 0.025,
+    }
+    
+    nc6_value = values.get("nC6", 0.0)
+    distributed_values = dict(values)
+    
+    for component, fraction in C6_PLUS_FRACTIONS.items():
+        distributed_values[component] = nc6_value * fraction
+    
+    return distributed_values
+
+
+def _distribute_c6_plus_composition_values(key_prefix: str, values: dict[str, float]) -> None:
+    """Distribute nC6 into heavier components and store in session state."""
+    distributed_values = distribute_c6_plus(values)
+    _replace_composition_values(
+        key_prefix,
+        distributed_values,
+        source=_EDITABLE_SOURCE,
+    )
+
+
 def _ss_key(key_prefix: str, *, source: str = _EDITABLE_SOURCE) -> str:
     """Build the session-state key for composition values."""
     return f"{key_prefix}_{source}_comp_values"
@@ -471,12 +509,42 @@ def composition_input(key_prefix: str = "comp") -> dict | None:
         values.update(zip(edited["Component"], edited["Mol %"]))
         st.session_state[k] = values
 
-        action_cols = st.columns(2)
+        action_cols = st.columns(3)
         if action_cols[0].button("Set to zero", key=f"{key_prefix}_set_zero", help="Set all mole-percent values to zero"):
             _set_zero_composition_values(key_prefix)
             st.rerun()
         if action_cols[1].button("Normalize", key=f"{key_prefix}_normalize", help="Scale mole-percent values to sum to 100"):
             _normalize_current_composition_values(key_prefix, values)
+            st.rerun()
+        
+        # Check if nC6+ distribution is applicable
+        nc6_value = values.get("nC6", 0.0)
+        nc7_value = values.get("nC7", 0.0)
+        nc8_value = values.get("nC8", 0.0)
+        nc9_value = values.get("nC9", 0.0)
+        nc10_value = values.get("nC10", 0.0)
+        
+        can_distribute_c6 = (
+            nc6_value > 0.0 and
+            nc7_value == 0.0 and
+            nc8_value == 0.0 and
+            nc9_value == 0.0 and
+            nc10_value == 0.0
+        )
+        
+        distribute_help = (
+            "Distribute nC6 into heavier components using fixed fractions:\n"
+            "nC6: 50.0%, nC7: 30.0%, nC8: 12.5%, nC9: 5.0%, nC10: 2.5%\n"
+            "Only available when nC6 is present and nC7–nC10 are all zero."
+        )
+        
+        if action_cols[2].button(
+            "Distribute C6+",
+            key=f"{key_prefix}_distribute_c6",
+            help=distribute_help,
+            disabled=not can_distribute_c6,
+        ):
+            _distribute_c6_plus_composition_values(key_prefix, values)
             st.rerun()
     else:
         st.caption("Example compositions are shown read-only.")
