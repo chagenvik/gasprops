@@ -162,6 +162,9 @@ def _replace_composition_values(
     editor_key = _table_key(key_prefix, source)
     if editor_key in st.session_state:
         del st.session_state[editor_key]
+    table_state_key = _table_state_key(key_prefix, source)
+    if table_state_key in st.session_state:
+        del st.session_state[table_state_key]
 
 
 def _set_zero_composition_values(key_prefix: str) -> None:
@@ -230,6 +233,11 @@ def _table_key(key_prefix: str, source: str) -> str:
     return f"{key_prefix}_{source}_table"
 
 
+def _table_state_key(key_prefix: str, source: str) -> str:
+    """Build the session-state key for table data backing the editor."""
+    return f"{key_prefix}_{source}_table_state"
+
+
 def _use_examples_key(key_prefix: str) -> str:
     """Build the session-state key for the example toggle."""
     return f"{key_prefix}_use_example_gases"
@@ -265,6 +273,62 @@ def _active_source(key_prefix: str) -> str:
 def _active_values(key_prefix: str) -> dict[str, float]:
     """Return the active composition values from session state."""
     return dict(st.session_state[_ss_key(key_prefix, source=_active_source(key_prefix))])
+
+
+def _composition_editor_dataframe(
+    values: dict[str, float],
+    active_components: dict[str, str],
+) -> pd.DataFrame:
+    """Build a stable table model for the composition editor."""
+    return pd.DataFrame(
+        {
+            "Component": list(active_components.keys()),
+            "Name": list(active_components.values()),
+            "Mol %": [float(values.get(component, 0.0)) for component in active_components],
+        }
+    )
+
+
+def _editor_dataframe_matches_components(df: pd.DataFrame, active_components: dict[str, str]) -> bool:
+    """Return whether the table model rows match the expected component order."""
+    expected = list(active_components.keys())
+    if "Component" not in df.columns:
+        return False
+    actual = [str(component) for component in df["Component"].tolist()]
+    return actual == expected
+
+
+def _values_from_base_and_deltas(
+    base_df: pd.DataFrame,
+    editor_state: dict,
+    active_components: dict[str, str],
+) -> dict[str, float]:
+    """Apply data_editor delta state to base df to derive composition values.
+
+    Streamlit stores edit deltas in session_state[editor_key] before the script
+    reruns, so reading them before calling st.data_editor() always gives the
+    latest user input without requiring an extra rerun.
+    """
+    component_list = list(active_components.keys())
+    values: dict[str, float] = {}
+
+    for i, component in enumerate(component_list):
+        if i < len(base_df):
+            mol_val = base_df.iloc[i]["Mol %"]
+            values[component] = float(mol_val) if not pd.isna(mol_val) else 0.0
+        else:
+            values[component] = 0.0
+
+    edited_rows = editor_state.get("edited_rows", {})
+    for row_idx, row_edits in edited_rows.items():
+        idx = int(row_idx)
+        if 0 <= idx < len(component_list) and "Mol %" in row_edits:
+            mol_val = row_edits["Mol %"]
+            if mol_val is None or (isinstance(mol_val, float) and pd.isna(mol_val)):
+                mol_val = 0.0
+            values[component_list[idx]] = float(mol_val)
+
+    return values
 
 
 def _init_session_state(key_prefix: str) -> None:
@@ -475,17 +539,40 @@ def composition_input(key_prefix: str = "comp") -> dict | None:
     source = _active_source(key_prefix)
     is_example_source = source == _EXAMPLE_SOURCE
     k = _ss_key(key_prefix, source=source)
+    table_state_key = _table_state_key(key_prefix, source)
     active_components = dict(COMPONENTS)
 
-    df = pd.DataFrame({
-        "Component": list(active_components.keys()),
-        "Name":      list(active_components.values()),
-        "Mol %":     [st.session_state[k].get(c, 0.0) for c in active_components],
-    })
+    # Initialize fixed base df (only when absent, i.e. first load or after external replace).
+    # The base is intentionally never mutated during editing; edits live in the widget's
+    # own delta state (st.session_state[editor_key]) which Streamlit populates before
+    # re-running the script, so we can read them early and avoid any extra rerun.
+    if table_state_key not in st.session_state:
+        st.session_state[table_state_key] = _composition_editor_dataframe(
+            st.session_state[k],
+            active_components,
+        )
+    elif not _editor_dataframe_matches_components(st.session_state[table_state_key], active_components):
+        st.session_state[table_state_key] = _composition_editor_dataframe(
+            st.session_state[k],
+            active_components,
+        )
+
+    base_df = st.session_state[table_state_key]
+    editor_key = _table_key(key_prefix, source)
+
+    # Pre-read accumulated edit deltas to get an early draft of values (used for
+    # button enable/disable logic below).  The returned DataFrame from
+    # data_editor is used as the final authoritative source so that paste
+    # operations from external tools (e.g. Excel) are always captured.
+    if not is_example_source:
+        editor_state = st.session_state.get(editor_key, {})
+        values = _values_from_base_and_deltas(base_df, editor_state, active_components)
+    else:
+        values = dict(st.session_state[k])
 
     edited = st.data_editor(
-        df,
-        key=_table_key(key_prefix, source),
+        base_df,
+        key=editor_key,
         width='stretch',
         hide_index=True,
         disabled=is_example_source,
@@ -504,10 +591,13 @@ def composition_input(key_prefix: str = "comp") -> dict | None:
         num_rows="fixed",
     )
 
-    values: dict[str, float] = dict(st.session_state[k])
     if not is_example_source:
-        values.update(zip(edited["Component"], edited["Mol %"]))
+        # Use the returned DataFrame as the authoritative value source.
+        # It reflects both normal cell edits (via delta overlay) and paste
+        # operations from external sources such as Excel.
+        values = _values_from_base_and_deltas(edited, {}, active_components)
         st.session_state[k] = values
+
 
         action_cols = st.columns(3)
         if action_cols[0].button("Set to zero", key=f"{key_prefix}_set_zero", help="Set all mole-percent values to zero"):
