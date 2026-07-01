@@ -24,3 +24,8 @@ spec:
         - environment: prod
           runAsNonRoot: true
           enabled: true
+
+  dnsAlias:
+    - alias: gasprops
+      environment: prod
+      component: main
