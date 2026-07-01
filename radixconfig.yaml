@@ -15,6 +15,14 @@ spec:
       # Streamlit session state works best with a single replica.
       replicas: 1
 
+      resources:
+        requests:
+          cpu: 1000m
+          memory: 2048Mi
+        limits:
+          cpu: 2000m
+          memory: 4096Mi
+
       publicPort: http
       ports:
         - name: http
