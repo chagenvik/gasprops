@@ -1,0 +1,26 @@
+apiVersion: radix.equinor.com/v1
+kind: RadixApplication
+metadata:
+  name: gasprops
+spec:
+  environments:
+    - name: prod
+      build:
+        from: main
+
+  components:
+    - name: main
+      src: ./
+
+      # Streamlit session state works best with a single replica.
+      replicas: 1
+
+      publicPort: http
+      ports:
+        - name: http
+          port: 8501
+
+      environmentConfig:
+        - environment: prod
+          runAsNonRoot: true
+          enabled: true
