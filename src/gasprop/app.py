@@ -155,6 +155,31 @@ def run_app() -> None:
                 animation: none;
             }
         }
+
+        /* iOS/Safari can still dark-style controls in dark appearance; enforce light widget surfaces. */
+        @media (prefers-color-scheme: dark) {
+            [data-testid="stFileUploaderDropzone"],
+            [data-testid="stDataFrame"],
+            [data-testid="stExpander"],
+            [data-testid="stAlert"],
+            [data-testid="stMetric"],
+            [data-baseweb="input"] > div,
+            [data-baseweb="select"] > div,
+            .stNumberInput input,
+            .stTextInput input,
+            .stTextArea textarea {
+                background: rgba(255, 255, 255, 0.92) !important;
+                color: #083a5f !important;
+                border-color: rgba(8, 88, 140, 0.2) !important;
+            }
+            [data-testid="stFileUploaderDropzoneInstructions"],
+            [data-testid="stFileUploaderFileData"],
+            [data-testid="stDataFrame"] *,
+            [data-testid="stMarkdownContainer"] *,
+            [data-testid="stWidgetLabel"] {
+                color: #083a5f !important;
+            }
+        }
         </style>
         """,
         unsafe_allow_html=True,
