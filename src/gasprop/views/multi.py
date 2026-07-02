@@ -78,13 +78,14 @@ def _plot_results(df: pd.DataFrame) -> None:
     default_color_idx = color_options.index(default_color)
 
     color_scale_options = ["Viridis", "Plasma", "Inferno", "Magma", "Cividis", "Turbo"]
+    default_color_scale_idx = color_scale_options.index("Turbo")
 
     if plot_mode == "2D":
         c1, c2, c3, c4 = st.columns(4)
         x_col = c1.selectbox("X axis", numeric_cols, index=default_x_idx, key="multi_plot2d_x")
         y_col = c2.selectbox("Y axis", numeric_cols, index=default_y_idx, key="multi_plot2d_y")
         color_col = c3.selectbox("Color by", options=color_options, index=default_color_idx, key="multi_plot2d_color")
-        color_scale = c4.selectbox("Color palette", options=color_scale_options, index=0, key="multi_plot2d_colorscale")
+        color_scale = c4.selectbox("Color palette", options=color_scale_options, index=default_color_scale_idx, key="multi_plot2d_colorscale")
 
         fig = px.scatter(
             df,
@@ -109,7 +110,7 @@ def _plot_results(df: pd.DataFrame) -> None:
         y_col = c2.selectbox("Y axis", numeric_cols, index=default_y_idx, key="multi_plot3d_y")
         z_col = c3.selectbox("Z axis", numeric_cols, index=default_z_idx, key="multi_plot3d_z")
         color_col = c4.selectbox("Color by", options=color_options, index=default_color_idx, key="multi_plot3d_color")
-        color_scale = c5.selectbox("Color palette", options=color_scale_options, index=0, key="multi_plot3d_colorscale")
+        color_scale = c5.selectbox("Color palette", options=color_scale_options, index=default_color_scale_idx, key="multi_plot3d_colorscale")
 
         fig = px.scatter_3d(
             df,

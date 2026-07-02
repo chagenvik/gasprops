@@ -119,7 +119,7 @@ def _make_pdf_page(
     tbl.auto_set_column_width(col=list(range(-1, len(df.columns))))
 
     ax_plot = fig.add_axes([0.08, 0.06, 0.82, 0.38])
-    colors = plt.cm.viridis(np.linspace(0, 0.85, len(temperatures)))
+    colors = plt.cm.turbo(np.linspace(0, 0.85, len(temperatures)))
     for i, (T, color) in enumerate(zip(temperatures, colors)):
         t_key = f"{T:.4g} {temp_label}"
         ax_plot.plot(

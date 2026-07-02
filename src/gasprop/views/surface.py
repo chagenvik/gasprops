@@ -146,6 +146,7 @@ def render(composition: dict | None) -> None:
         "Viridis", "Plasma", "Inferno", "Magma", "Cividis",
         "Turbo", "RdBu", "Portland", "Jet", "Hot", "Greys",
     ]
+    default_colorscale_idx = COLORSCALES.index("Turbo")
     cc1, cc2 = st.columns(2)
     color_prop_key = cc1.selectbox(
         "Color variable",
@@ -154,7 +155,7 @@ def render(composition: dict | None) -> None:
         format_func=lambda k: f"{PROPERTIES[k][0]}  [{PROPERTIES[k][1]}]",
         key="surf_color_prop",
     )
-    colorscale = cc2.selectbox("Color palette", options=COLORSCALES, index=0, key="surf_colorscale")
+    colorscale = cc2.selectbox("Color palette", options=COLORSCALES, index=default_colorscale_idx, key="surf_colorscale")
 
     if color_prop_key not in cache["z_grids"]:
         with st.spinner(f"Calculating {PROPERTIES[color_prop_key][0]} for color…"):

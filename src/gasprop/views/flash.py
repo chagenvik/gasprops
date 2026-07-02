@@ -300,7 +300,7 @@ def _plot_results(df: pd.DataFrame) -> None:
     default_color_idx = color_options.index(default_color) if default_color in color_options else 0
 
     color_scale_options = ["Viridis", "Plasma", "Inferno", "Magma", "Cividis", "Turbo"]
-    default_color_scale_idx = 0
+    default_color_scale_idx = color_scale_options.index("Turbo")
 
     if plot_mode == "2D":
         c1, c2, c3, c4 = st.columns(4)

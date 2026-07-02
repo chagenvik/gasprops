@@ -39,6 +39,14 @@ def run_app() -> None:
     st.markdown(
         """
         <style>
+        :root {
+            /* Prevent Safari from auto-darkening native controls on dark-mode devices. */
+            color-scheme: light !important;
+        }
+        html, body, [data-testid="stApp"], [data-testid="stAppViewContainer"] {
+            color-scheme: light !important;
+        }
+
         [data-testid="stAppViewContainer"] {
             background:
                 radial-gradient(circle at 10% 5%, rgba(173, 216, 255, 0.45) 0%, rgba(173, 216, 255, 0) 35%),
