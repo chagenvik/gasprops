@@ -97,6 +97,17 @@ def test_component_violations_excludes_total_check():
     assert view.component_violations(off_total, "GERG-2008") == 0
 
 
+def test_outside_pipeline_composite_filter_covers_non_pipeline():
+    # "Outside pipeline quality range" = Intermediate + Outside Intermediate (i.e. everything
+    # that is not Pipeline Quality). It must equal the total minus the Pipeline count.
+    groups = view.COMPOSITE_FILTERS["Outside Pipeline Quality Range"]
+    assert set(groups) == {"Intermediate Quality", "Outside Intermediate Quality"}
+    metadata_df = view.load_metadata()
+    non_pipeline = int((metadata_df["quality_group"] != "Pipeline Quality").sum())
+    covered = int(metadata_df["quality_group"].isin(groups).sum())
+    assert covered == non_pipeline == 27
+
+
 def test_quality_group_matches_violation_counts():
     # Pipeline = no DETAIL violations; Intermediate = DETAIL>0 but GERG==0;
     # Outside = GERG>0. This mirrors the classification stored during data prep.
