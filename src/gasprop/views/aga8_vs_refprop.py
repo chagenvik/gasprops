@@ -34,7 +34,11 @@ RESULTS_DIR = DATA_DIR / "results"
 
 EOS_OPTIONS = ["GERG-2008", "DETAIL"]
 QUALITY_GROUPS = ["Pipeline Quality", "Intermediate Quality", "Outside Intermediate Quality"]
-GROUP_FILTER_OPTIONS = ["All quality ranges", *QUALITY_GROUPS]
+# Composite filters map a UI label to the set of quality groups it selects.
+COMPOSITE_FILTERS = {
+    "Outside Pipeline Quality Range": ("Intermediate Quality", "Outside Intermediate Quality"),
+}
+GROUP_FILTER_OPTIONS = ["All quality ranges", *QUALITY_GROUPS, *COMPOSITE_FILTERS]
 
 GERG_COLOR = "#1f77b4"
 DETAIL_COLOR = "#ff7f0e"
@@ -313,7 +317,9 @@ def render(composition: dict | None) -> None:
         y_axis_range = [min(y_axis_min, y_axis_max), max(y_axis_min, y_axis_max)]
 
     filtered_df = metadata_df
-    if quality_filter != "All quality ranges":
+    if quality_filter in COMPOSITE_FILTERS:
+        filtered_df = metadata_df[metadata_df["quality_group"].isin(COMPOSITE_FILTERS[quality_filter])]
+    elif quality_filter != "All quality ranges":
         filtered_df = metadata_df[metadata_df["quality_group"] == quality_filter]
 
     available_ids = filtered_df["id"].tolist()
@@ -322,7 +328,9 @@ def render(composition: dict | None) -> None:
         return
 
     if view_mode == "Single station":
-        selected_id = st.selectbox("Station", available_ids, key="aga8_refprop_single_id")
+        selected_id = st.selectbox(
+            "Station", available_ids, key=f"aga8_refprop_single_id_{quality_filter}"
+        )
         selected_meta = filtered_df[filtered_df["id"] == selected_id].iloc[0]
         st.write(f"**Quality range:** {selected_meta['quality_group']}")
         detail_col, gerg_col = st.columns(2)
@@ -341,7 +349,7 @@ def render(composition: dict | None) -> None:
             "Stations",
             available_ids,
             default=available_ids,
-            key="aga8_refprop_group_ids",
+            key=f"aga8_refprop_group_ids_{quality_filter}",
         )
         st.write(f"Showing **{len(selected_ids)}** stations.")
         if not selected_ids:
