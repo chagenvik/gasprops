@@ -58,6 +58,17 @@ _METRICS = [
 _AXIS_POSITIONS = [(1, 1), (1, 2), (2, 1), (2, 2)]
 
 
+def _is_klab_gas(gas_id: str) -> bool:
+    return gas_id.startswith("klab_gas_")
+
+
+def _force_fixed_y_axis_for_klab() -> None:
+    if st.session_state.get("aga8_refprop_include_klab", False):
+        st.session_state["aga8_refprop_fix_y"] = True
+        st.session_state["aga8_refprop_ymin"] = -1.3
+        st.session_state["aga8_refprop_ymax"] = 1.3
+
+
 def component_violations(composition: dict[str, float], mode: str) -> int:
     """Count component-range violations for a composition using the built-in AGA8 limits.
 
@@ -78,7 +89,6 @@ def classify_quality(detail_violations: int, gerg_violations: int) -> str:
     return "Outside Intermediate Quality"
 
 
-@st.cache_data(show_spinner=False)
 def load_metadata() -> pd.DataFrame:
     """Load anonymized station metadata as a DataFrame sorted by station id.
 
@@ -123,6 +133,12 @@ def load_results(station_id: str) -> pd.DataFrame:
     if not csv_path.exists():
         raise FileNotFoundError(f"Results not found for {station_id}: {csv_path}")
     return pd.read_csv(csv_path)
+
+
+@st.cache_data(show_spinner=False)
+def load_all_results() -> dict[str, pd.DataFrame]:
+    """Load all pressure-sweep result tables in one cached operation."""
+    return {csv_path.stem: pd.read_csv(csv_path) for csv_path in sorted(RESULTS_DIR.glob("*.csv"))}
 
 
 def _apply_axis_styling(figure: go.Figure, y_axis_range) -> go.Figure:
@@ -186,51 +202,57 @@ def _create_single_figure(station_id, df, eos_models, y_axis_range, eos_colors) 
 def _create_group_figure(results_by_station, eos_models, title_label, y_axis_range, eos_colors) -> go.Figure:
     figure = make_subplots(rows=2, cols=2, subplot_titles=[m[0] for m in _METRICS])
 
-    for station_index, (station_id, df) in enumerate(results_by_station.items()):
-        for index, (_, gerg_col, detail_col) in enumerate(_METRICS):
-            row, col = _AXIS_POSITIONS[index]
+    trace_specs = {
+        "GERG-2008": {
+            "column_index": 1,
+            "line": {"color": eos_colors["GERG-2008"], "dash": "solid"},
+            "marker": {"size": 5},
+        },
+        "DETAIL": {
+            "column_index": 2,
+            "line": {"color": eos_colors["DETAIL"], "dash": "dash"},
+            "marker": {"size": 5, "symbol": "square"},
+        },
+    }
 
-            if "GERG-2008" in eos_models:
-                figure.add_trace(
-                    go.Scatter(
-                        x=df["P_bara"],
-                        y=df[gerg_col],
-                        mode="lines+markers",
-                        name="GERG-2008",
-                        legendgroup="GERG-2008",
-                        showlegend=index == 0 and station_index == 0,
-                        line={"color": eos_colors["GERG-2008"], "dash": "solid"},
-                        marker={"size": 5},
-                        hovertemplate=(
-                            f"Gas: {station_id}<br>EOS: GERG-2008<br>"
-                            "Pressure: %{x:.1f} bara<br>"
-                            "Relative deviation: %{y:.4f}%<extra></extra>"
-                        ),
-                    ),
-                    row=row,
-                    col=col,
-                )
+    for index, (_, gerg_col, detail_col) in enumerate(_METRICS):
+        row, col = _AXIS_POSITIONS[index]
+        metric_columns = {"GERG-2008": gerg_col, "DETAIL": detail_col}
 
-            if "DETAIL" in eos_models:
-                figure.add_trace(
-                    go.Scatter(
-                        x=df["P_bara"],
-                        y=df[detail_col],
-                        mode="lines+markers",
-                        name="DETAIL",
-                        legendgroup="DETAIL",
-                        showlegend=index == 0 and station_index == 0,
-                        line={"color": eos_colors["DETAIL"], "dash": "dash"},
-                        marker={"size": 5, "symbol": "square"},
-                        hovertemplate=(
-                            f"Gas: {station_id}<br>EOS: DETAIL<br>"
-                            "Pressure: %{x:.1f} bara<br>"
-                            "Relative deviation: %{y:.4f}%<extra></extra>"
-                        ),
+        for eos_name in eos_models:
+            x_values = []
+            y_values = []
+            gas_ids = []
+            for station_id, df in results_by_station.items():
+                point_count = len(df)
+                x_values.extend(df["P_bara"].tolist())
+                y_values.extend(df[metric_columns[eos_name]].tolist())
+                gas_ids.extend([station_id] * point_count)
+                x_values.append(None)
+                y_values.append(None)
+                gas_ids.append(None)
+
+            figure.add_trace(
+                go.Scatter(
+                    x=x_values,
+                    y=y_values,
+                    customdata=gas_ids,
+                    mode="lines+markers",
+                    name=eos_name,
+                    legendgroup=eos_name,
+                    showlegend=index == 0,
+                    line=trace_specs[eos_name]["line"],
+                    marker=trace_specs[eos_name]["marker"],
+                    hovertemplate=(
+                        "Gas: %{customdata}<br>"
+                        f"EOS: {eos_name}<br>"
+                        "Pressure: %{x:.1f} bara<br>"
+                        "Relative deviation: %{y:.4f}%<extra></extra>"
                     ),
-                    row=row,
-                    col=col,
-                )
+                ),
+                row=row,
+                col=col,
+            )
 
     figure.update_layout(title=title_label, height=900, template="plotly_white")
     return _apply_axis_styling(figure, y_axis_range)
@@ -335,6 +357,7 @@ Relative deviations are shown as:
             "Include K-lab gases",
             value=False,
             key="aga8_refprop_include_klab",
+            on_change=_force_fixed_y_axis_for_klab,
             help=(
                 "Include three K-lab VGII gases selected to represent low, "
                 "medium, and high DETAIL density deviations."
@@ -354,14 +377,9 @@ Relative deviations are shown as:
 
     plot_metadata_df = metadata_df.copy()
     if not include_klab:
-        plot_metadata_df = plot_metadata_df[plot_metadata_df["data_source"] != "K-lab"]
-
-    previous_include_klab = st.session_state.get("aga8_refprop_previous_include_klab", False)
-    if include_klab and not previous_include_klab:
-        st.session_state["aga8_refprop_fix_y"] = True
-        st.session_state["aga8_refprop_ymin"] = -1.3
-        st.session_state["aga8_refprop_ymax"] = 1.3
-    st.session_state["aga8_refprop_previous_include_klab"] = include_klab
+        plot_metadata_df = plot_metadata_df[~plot_metadata_df["id"].map(_is_klab_gas)]
+    else:
+        _force_fixed_y_axis_for_klab()
 
     group_counts = plot_metadata_df["quality_group"].value_counts()
     metric_cols = st.columns(4)
@@ -455,7 +473,8 @@ Relative deviations are shown as:
         if not selected_ids:
             st.info("Select at least one gas.")
         else:
-            results_by_station = {station_id: load_results(station_id) for station_id in selected_ids}
+            all_results = load_all_results()
+            results_by_station = {station_id: all_results[station_id] for station_id in selected_ids}
             st.plotly_chart(
                 _create_group_figure(results_by_station, eos_models, quality_filter, y_axis_range, eos_colors),
                 use_container_width=True,

@@ -90,6 +90,11 @@ def test_klab_gases_are_outside_intermediate_quality():
     assert set(klab_df["quality_group"]) == {"Outside Intermediate Quality"}
 
 
+def test_klab_gas_detection_uses_anonymized_id_prefix():
+    assert view._is_klab_gas("klab_gas_01")
+    assert not view._is_klab_gas("gasmet_01")
+
+
 def test_klab_selection_covers_low_medium_and_just_below_one_percent_detail_density_deviation():
     metadata = _raw_metadata()
     assert metadata["klab_gas_01"]["detail_density_abs_max_rel_dev"] == pytest.approx(0.300451513)
@@ -155,6 +160,13 @@ def test_results_have_required_deviation_columns():
     assert results_df["P_bara"].min() == pytest.approx(10.0)
 
 
+def test_all_results_loader_returns_every_anonymized_result_file():
+    all_results = view.load_all_results()
+    assert len(all_results) == 53
+    assert "gasmet_01" in all_results
+    assert "klab_gas_03" in all_results
+
+
 def test_c6_plus_equals_sum_of_heavy_components():
     composition = view._load_compositions()["gasmet_01"]
     expected = sum(composition[component] for component in view.C6_PLUS_COMPONENTS)
@@ -165,6 +177,22 @@ def test_composition_dataframe_has_expected_shape():
     df = view._composition_dataframe("gasmet_01")
     assert list(df.columns) == ["Component", "Mol %"]
     assert set(df["Component"]).issubset(_ALLOWED_COMPONENTS)
+
+
+def test_grouped_figure_uses_combined_traces_for_performance():
+    results = {
+        "gasmet_01": view.load_results("gasmet_01"),
+        "gasmet_02": view.load_results("gasmet_02"),
+        "klab_gas_01": view.load_results("klab_gas_01"),
+    }
+    figure = view._create_group_figure(
+        results,
+        ["GERG-2008", "DETAIL"],
+        "test",
+        [-1.0, 1.0],
+        {"GERG-2008": "#0000a2", "DETAIL": "#E69F00"},
+    )
+    assert len(figure.data) == 8
 
 
 def test_tab_is_registered_in_view_map():
