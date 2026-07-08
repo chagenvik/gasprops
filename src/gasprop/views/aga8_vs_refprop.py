@@ -253,11 +253,60 @@ def _c6_plus_mol_pct(station_id: str) -> float:
 def render(composition: dict | None) -> None:
     """Render the AGA8 vs REFPROP anonymized station viewer."""
     st.subheader("AGA8 vs REFPROP — anonymized metering-station study")
-    st.caption(
-        "Pre-computed GERG-2008 and DETAIL relative deviations against a REFPROP reference "
-        "across a pressure sweep, for 50 anonymized natural-gas metering stations. "
-        "REFPROP is not run in this app — all results are static."
+    st.markdown(
+        """
+The results in this tab originate from the paper **"Uncertainty in Calculated Gas Properties
+Outside Pipeline Quality Natural Gas"**, presented at the **Global Flow Measurement Workshop
+2026**.
+
+This tab shows pre-computed comparisons for 50 anonymized gas metering stations connected to
+the Norwegian gas grid (`gasmet_01`–`gasmet_50`). In the source data, gas compositions were
+measured up to **C6+**. For the calculations shown here, the reported C6+ fraction was
+distributed into **nC6–nC10** using a fixed split: **nC6 50.0%, nC7 30.0%, nC8 12.5%,
+nC9 5.0%, and nC10 2.5%**.
+
+For each composition, AGA8 DETAIL and AGA8 GERG-2008 properties were calculated with `pvtlib` and
+compared against REFPROP reference results obtained through `ctREFPROP`. REFPROP requires a
+separate license and is not run in this app.
+
+Cricondentherm values were calculated with NeqSim, and each pressure sweep was evaluated from
+10 to 300 bara at `max(cricondentherm + 10 °C, 10 °C)`. The plots show relative deviation from
+REFPROP in percent.
+        """
     )
+    with st.expander("Calculation method and data source", expanded=False):
+        st.markdown(
+            """
+This tab presents pre-computed property comparisons for 50 anonymized gas metering stations
+connected to the Norwegian gas grid. The station identities have been removed and replaced by
+neutral identifiers (`gasmet_01`–`gasmet_50`). The data are made available for this study with
+permission, but no field or station names are included in the public app.
+
+The source compositions were measured up to **C6+**. In this study, the reported C6+ fraction
+was distributed into **nC6–nC10** using the fixed split from the paper:
+
+| Component | Fraction of C6+ |
+|---|---:|
+| nC6 | 50.0% |
+| nC7 | 30.0% |
+| nC8 | 12.5% |
+| nC9 | 5.0% |
+| nC10 | 2.5% |
+
+For each gas composition, the cricondentherm was calculated with NeqSim, and the analysis
+temperature was set to the cricondentherm plus 10 °C, with a minimum temperature of 10 °C.
+Gas properties were then calculated from 10 to 300 bara.
+
+The plots compare properties calculated with AGA8 DETAIL and AGA8 GERG-2008 against REFPROP. DETAIL
+and GERG-2008 were calculated using `pvtlib`, while REFPROP was accessed programmatically using
+the `ctREFPROP` Python package. REFPROP itself requires a separate license and is not run inside
+this app; only the pre-computed REFPROP comparison results are included here.
+
+Relative deviations are shown as:
+
+`100 × (Property_AGA8 - Property_REFPROP) / Property_REFPROP [%]`
+            """
+        )
 
     try:
         metadata_df = load_metadata()
