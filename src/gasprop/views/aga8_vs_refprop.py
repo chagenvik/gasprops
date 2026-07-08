@@ -279,7 +279,7 @@ def render(composition: dict | None) -> None:
     st.markdown(
         """
 The results in this tab originate from the paper **"Uncertainty in Calculated Gas Properties
-Outside Pipeline Quality Natural Gas"**, presented at the **Global Flow Measurement Workshop
+Outside Pipeline Quality Natural Gas"**, presented at the **Global Flow Measurement Workshop (GFMW)
 2026**.
 
 This tab shows pre-computed comparisons for 50 anonymized gas metering stations connected to
