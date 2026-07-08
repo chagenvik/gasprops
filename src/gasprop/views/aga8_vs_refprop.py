@@ -1,5 +1,5 @@
 """
-AGA8 vs REFPROP tab — results from GFMW2026 paper.
+AGA8 vs REFPROP tab — results from Global Flow Measurement Workshop 2026 paper.
 
 Interactive viewer for pre-computed GERG-2008 and DETAIL relative deviations against a
 REFPROP reference across a pressure sweep, for 50 anonymized natural-gas metering stations
@@ -56,6 +56,21 @@ _METRICS = [
     ("Isentropic exponent", "GERG_kappa_rel_dev", "DETAIL_kappa_rel_dev"),
 ]
 _AXIS_POSITIONS = [(1, 1), (1, 2), (2, 1), (2, 2)]
+_SCATTER_STATISTICS = ["At selected pressure", "Maximum absolute", "Maximum", "Minimum", "Mean"]
+_DEFAULT_SCATTER_X_AXIS = "C3"
+_DEFAULT_SCATTER_EOS = "GERG-2008"
+_DEFAULT_SCATTER_PROPERTY = "Mass Density"
+_DEFAULT_SCATTER_STATISTIC = "Maximum absolute"
+_DEFAULT_SCATTER_COLOR_BY = "Quality range"
+_SCATTER_X_OPTIONS = [
+    *COMPONENT_ORDER,
+    "C6+ (nC6…nC10)",
+    "C5+ (iC5+nC5+nC6…nC10)",
+    "C2+",
+    "Cricondentherm [°C]",
+    "DETAIL violations",
+    "GERG violations",
+]
 
 
 def _is_klab_gas(gas_id: str) -> bool:
@@ -268,14 +283,159 @@ def _composition_dataframe(station_id: str) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def _composition_wide_dataframe(gas_ids: list[str]) -> pd.DataFrame:
+    compositions = _load_compositions()
+    rows = []
+    for component in COMPONENT_ORDER:
+        row = {"Component": component}
+        for gas_id in gas_ids:
+            row[gas_id] = float(compositions[gas_id].get(component, 0.0))
+        rows.append(row)
+    c6_plus_row = {"Component": "C6+ (nC6…nC10)"}
+    for gas_id in gas_ids:
+        c6_plus_row[gas_id] = sum(
+            float(compositions[gas_id].get(component, 0.0)) for component in C6_PLUS_COMPONENTS
+        )
+    rows.append(c6_plus_row)
+    return pd.DataFrame(rows)
+
+
 def _c6_plus_mol_pct(station_id: str) -> float:
     composition = _load_compositions()[station_id]
     return sum(float(composition.get(component, 0.0)) for component in C6_PLUS_COMPONENTS)
 
 
+def _composition_x_value(gas_id: str, x_axis: str, metadata_by_id: dict[str, dict]) -> float:
+    composition = _load_compositions()[gas_id]
+    if x_axis in COMPONENT_ORDER:
+        return float(composition.get(x_axis, 0.0))
+    if x_axis == "C6+ (nC6…nC10)":
+        return sum(float(composition.get(component, 0.0)) for component in C6_PLUS_COMPONENTS)
+    if x_axis == "C5+ (iC5+nC5+nC6…nC10)":
+        return sum(
+            float(composition.get(component, 0.0))
+            for component in ["iC5", "nC5", *C6_PLUS_COMPONENTS]
+        )
+    if x_axis == "C2+":
+        return sum(
+            float(composition.get(component, 0.0))
+            for component in COMPONENT_ORDER
+            if component not in {"N2", "CO2", "C1"}
+        )
+    if x_axis == "Cricondentherm [°C]":
+        return float(metadata_by_id[gas_id]["cricondentherm"])
+    if x_axis == "DETAIL violations":
+        return float(metadata_by_id[gas_id]["detail_violations"])
+    if x_axis == "GERG violations":
+        return float(metadata_by_id[gas_id]["gerg_violations"])
+    raise ValueError(f"Unsupported scatter x-axis: {x_axis}")
+
+
+def _scatter_x_axis_label(x_axis: str) -> str:
+    if x_axis in COMPONENT_ORDER or x_axis in {
+        "C6+ (nC6…nC10)",
+        "C5+ (iC5+nC5+nC6…nC10)",
+        "C2+",
+    }:
+        return f"{x_axis} [mol %]"
+    return x_axis
+
+
+def _deviation_y_value(df: pd.DataFrame, column: str, statistic: str, pressure_bara: float | None) -> float:
+    if statistic == "At selected pressure":
+        if pressure_bara is None:
+            raise ValueError("pressure_bara is required for selected-pressure scatter data")
+        nearest_index = (df["P_bara"] - pressure_bara).abs().idxmin()
+        return float(df.loc[nearest_index, column])
+    if statistic == "Maximum absolute":
+        return float(df[column].abs().max())
+    if statistic == "Maximum":
+        return float(df[column].max())
+    if statistic == "Minimum":
+        return float(df[column].min())
+    if statistic == "Mean":
+        return float(df[column].mean())
+    raise ValueError(f"Unsupported scatter statistic: {statistic}")
+
+
+def _scatter_dataframe(
+    gas_ids: list[str],
+    metadata_df: pd.DataFrame,
+    results_by_gas: dict[str, pd.DataFrame],
+    x_axis: str,
+    eos_model: str,
+    property_label: str,
+    statistic: str,
+    pressure_bara: float | None,
+) -> pd.DataFrame:
+    metric_columns = {
+        metric_label: {"GERG-2008": gerg_col, "DETAIL": detail_col}
+        for metric_label, gerg_col, detail_col in _METRICS
+    }
+    y_column = metric_columns[property_label][eos_model]
+    metadata_by_id = metadata_df.set_index("id").to_dict("index")
+    rows = []
+    for gas_id in gas_ids:
+        metadata = metadata_by_id[gas_id]
+        rows.append(
+            {
+                "Gas": gas_id,
+                "Quality range": metadata["quality_group"],
+                "Data source": metadata["data_source"],
+                "X": _composition_x_value(gas_id, x_axis, metadata_by_id),
+                "Relative deviation [%]": _deviation_y_value(
+                    results_by_gas[gas_id], y_column, statistic, pressure_bara
+                ),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def _create_scatter_figure(
+    scatter_df: pd.DataFrame,
+    x_axis_label: str,
+    y_axis_label: str,
+    color_by: str,
+) -> go.Figure:
+    figure = go.Figure()
+    for group_value, group_df in scatter_df.groupby(color_by, sort=False):
+        figure.add_trace(
+            go.Scatter(
+                x=group_df["X"],
+                y=group_df["Relative deviation [%]"],
+                mode="markers",
+                name=str(group_value),
+                customdata=group_df[["Gas", "Quality range", "Data source"]],
+                marker={"size": 10, "line": {"width": 1, "color": "rgba(30, 30, 30, 0.45)"}},
+                hovertemplate=(
+                    "Gas: %{customdata[0]}<br>"
+                    "Quality: %{customdata[1]}<br>"
+                    "Source: %{customdata[2]}<br>"
+                    f"{x_axis_label}: " + "%{x:.5g}<br>"
+                    f"{y_axis_label}: " + "%{y:.5g}<extra></extra>"
+                ),
+            )
+        )
+    figure.update_layout(
+        template="plotly_white",
+        height=620,
+        xaxis_title=x_axis_label,
+        yaxis_title=y_axis_label,
+        legend_title=color_by,
+    )
+    figure.update_xaxes(showgrid=True, gridcolor="rgba(120, 120, 120, 0.30)", zeroline=False)
+    figure.update_yaxes(
+        showgrid=True,
+        gridcolor="rgba(120, 120, 120, 0.30)",
+        zeroline=True,
+        zerolinecolor="rgba(80, 80, 80, 0.45)",
+    )
+    return figure
+
+
 def render(composition: dict | None) -> None:
     """Render the AGA8 vs REFPROP viewer."""
-    st.subheader("AGA8 vs REFPROP — results from GFMW2026 paper")
+    st.subheader("AGA8 vs REFPROP — results from Global Flow Measurement Workshop 2026 paper")
     st.markdown(
         """
 The results in this tab originate from the paper **"Uncertainty in Calculated Gas Properties
@@ -445,6 +605,7 @@ Relative deviations are shown as:
         st.info("No gases available for the selected quality range.")
         return
 
+    composition_table_ids = available_ids
     if view_mode == "Single gas":
         selected_id = st.selectbox(
             "Gas", available_ids, key=f"aga8_refprop_single_id_{quality_filter}_{include_klab}"
@@ -469,6 +630,7 @@ Relative deviations are shown as:
             default=available_ids,
             key=f"aga8_refprop_group_ids_{quality_filter}_{include_klab}",
         )
+        composition_table_ids = selected_ids
         st.write(f"Showing **{len(selected_ids)}** gases.")
         if not selected_ids:
             st.info("Select at least one gas.")
@@ -488,25 +650,128 @@ Relative deviations are shown as:
 
     st.divider()
     st.markdown("#### Gas composition")
-    composition_id = st.selectbox(
-        "Select gas",
-        plot_metadata_df["id"].tolist(),
-        key=f"aga8_refprop_composition_id_{include_klab}",
+    show_wide_composition_table = st.toggle(
+        "Show compositions in one table",
+        value=False,
+        key=f"aga8_refprop_composition_wide_{quality_filter}_{include_klab}_{view_mode}",
+        help="Show components as rows and one column per gas for the current filter/selection.",
     )
-    st.dataframe(_composition_dataframe(composition_id), use_container_width=True, hide_index=True)
-    st.metric("C6+ (nC6…nC10)", f"{_c6_plus_mol_pct(composition_id):.4f} mol %")
 
-    selected_composition = _load_compositions()[composition_id]
-    render_temporary_save_button(
-        key="aga8_refprop_session_save",
-        canonical_csv_provider=lambda: export_composition_values_to_canonical_csv(
-            selected_composition
-        ),
-        format_family=FORMAT_AGA8,
-        source_module="aga8_vs_refprop",
-        base_name_provider=lambda: composition_id,
-        help_text=(
-            "Save this gas composition as a temporary session fluid so it can be "
-            "reused in other tabs (e.g. Mix). Kept only in memory for this browser session."
-        ),
+    if show_wide_composition_table:
+        if not composition_table_ids:
+            st.info("Select at least one gas to show the composition table.")
+        else:
+            st.caption(
+                "Wide composition table for the current gas filter/selection. Values are mol %."
+            )
+            st.dataframe(
+                _composition_wide_dataframe(composition_table_ids),
+                use_container_width=True,
+                hide_index=True,
+            )
+    else:
+        composition_options = composition_table_ids or plot_metadata_df["id"].tolist()
+        composition_id = st.selectbox(
+            "Select gas",
+            composition_options,
+            key=f"aga8_refprop_composition_id_{include_klab}_{quality_filter}_{view_mode}",
+        )
+        st.dataframe(_composition_dataframe(composition_id), use_container_width=True, hide_index=True)
+        st.metric("C6+ (nC6…nC10)", f"{_c6_plus_mol_pct(composition_id):.4f} mol %")
+
+        selected_composition = _load_compositions()[composition_id]
+        render_temporary_save_button(
+            key="aga8_refprop_session_save",
+            canonical_csv_provider=lambda: export_composition_values_to_canonical_csv(
+                selected_composition
+            ),
+            format_family=FORMAT_AGA8,
+            source_module="aga8_vs_refprop",
+            base_name_provider=lambda: composition_id,
+            help_text=(
+                "Save this gas composition as a temporary session fluid so it can be "
+                "reused in other tabs (e.g. Mix). Kept only in memory for this browser session."
+            ),
+        )
+
+    st.divider()
+    st.markdown("#### Scatter plot")
+    st.caption(
+        "Plot composition or gas metadata on the x-axis against an AGA8 relative deviation "
+        "summary on the y-axis for the current gas filter/selection."
     )
+    if not composition_table_ids:
+        st.info("Select at least one gas to show the scatter plot.")
+        return
+
+    scatter_col_1, scatter_col_2, scatter_col_3 = st.columns(3)
+    with scatter_col_1:
+        scatter_x_axis = st.selectbox(
+            "X-axis",
+            _SCATTER_X_OPTIONS,
+            index=_SCATTER_X_OPTIONS.index(_DEFAULT_SCATTER_X_AXIS),
+            key=f"aga8_refprop_scatter_x_{quality_filter}_{include_klab}_{view_mode}",
+        )
+        scatter_property = st.selectbox(
+            "Deviation property",
+            [metric[0] for metric in _METRICS],
+            index=[metric[0] for metric in _METRICS].index(_DEFAULT_SCATTER_PROPERTY),
+            key=f"aga8_refprop_scatter_property_{quality_filter}_{include_klab}_{view_mode}",
+        )
+    with scatter_col_2:
+        scatter_eos = st.selectbox(
+            "EOS model",
+            EOS_OPTIONS,
+            index=EOS_OPTIONS.index(_DEFAULT_SCATTER_EOS),
+            key=f"aga8_refprop_scatter_eos_{quality_filter}_{include_klab}_{view_mode}",
+        )
+        scatter_statistic = st.selectbox(
+            "Deviation value",
+            _SCATTER_STATISTICS,
+            index=_SCATTER_STATISTICS.index(_DEFAULT_SCATTER_STATISTIC),
+            key=f"aga8_refprop_scatter_stat_{quality_filter}_{include_klab}_{view_mode}",
+        )
+    scatter_pressure = None
+    all_results = load_all_results()
+    if scatter_statistic == "At selected pressure":
+        pressure_options = all_results[composition_table_ids[0]]["P_bara"].tolist()
+        with scatter_col_3:
+            scatter_pressure = st.selectbox(
+                "Pressure [bara]",
+                pressure_options,
+                index=pressure_options.index(100.0) if 100.0 in pressure_options else 0,
+                key=f"aga8_refprop_scatter_pressure_{quality_filter}_{include_klab}_{view_mode}",
+            )
+    with scatter_col_3:
+        scatter_color_by = st.selectbox(
+            "Color by",
+            ["Quality range", "Data source"],
+            index=["Quality range", "Data source"].index(_DEFAULT_SCATTER_COLOR_BY),
+            key=f"aga8_refprop_scatter_color_{quality_filter}_{include_klab}_{view_mode}",
+        )
+
+    scatter_results = {gas_id: all_results[gas_id] for gas_id in composition_table_ids}
+    scatter_df = _scatter_dataframe(
+        composition_table_ids,
+        metadata_df,
+        scatter_results,
+        scatter_x_axis,
+        scatter_eos,
+        scatter_property,
+        scatter_statistic,
+        scatter_pressure,
+    )
+    pressure_label = (
+        f" at {scatter_pressure:.0f} bara"
+        if scatter_statistic == "At selected pressure" and scatter_pressure is not None
+        else f" ({scatter_statistic.lower()})"
+    )
+    scatter_y_label = f"{scatter_eos} {scatter_property} relative deviation [%]{pressure_label}"
+    st.plotly_chart(
+        _create_scatter_figure(
+            scatter_df, _scatter_x_axis_label(scatter_x_axis), scatter_y_label, scatter_color_by
+        ),
+        use_container_width=True,
+    )
+    with st.expander("Show scatter data"):
+        st.dataframe(scatter_df, use_container_width=True, hide_index=True)

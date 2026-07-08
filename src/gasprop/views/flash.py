@@ -46,7 +46,14 @@ PROPERTIES = {
     "entropy": ("Entropy", "J/(mol*K)"),
 }
 
-DEFAULT_PROPERTIES = ["density", "molar_mass", "z", "speed_of_sound", "viscosity"]
+DEFAULT_PROPERTIES = [
+    "density",
+    "molar_mass",
+    "z",
+    "speed_of_sound",
+    "viscosity",
+    "kinematic_viscosity",
+]
 _STATE_FLASH = "gp_flash_result"
 
 _DEFAULT_POINTS = pd.DataFrame(
