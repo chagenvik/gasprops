@@ -212,6 +212,14 @@ def test_scatter_dataframe_can_plot_density_deviation_against_c3_content():
     )
 
 
+def test_scatter_plot_defaults_match_density_deviation_against_c3_content():
+    assert view._DEFAULT_SCATTER_X_AXIS == "C3"
+    assert view._DEFAULT_SCATTER_EOS == "GERG-2008"
+    assert view._DEFAULT_SCATTER_PROPERTY == "Mass Density"
+    assert view._DEFAULT_SCATTER_STATISTIC == "Maximum absolute"
+    assert view._DEFAULT_SCATTER_COLOR_BY == "Quality range"
+
+
 def test_scatter_dataframe_supports_c6_plus_and_max_absolute_deviation():
     metadata_df = view.load_metadata()
     results = {"gasmet_01": view.load_results("gasmet_01")}

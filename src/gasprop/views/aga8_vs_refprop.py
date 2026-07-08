@@ -57,6 +57,11 @@ _METRICS = [
 ]
 _AXIS_POSITIONS = [(1, 1), (1, 2), (2, 1), (2, 2)]
 _SCATTER_STATISTICS = ["At selected pressure", "Maximum absolute", "Maximum", "Minimum", "Mean"]
+_DEFAULT_SCATTER_X_AXIS = "C3"
+_DEFAULT_SCATTER_EOS = "GERG-2008"
+_DEFAULT_SCATTER_PROPERTY = "Mass Density"
+_DEFAULT_SCATTER_STATISTIC = "Maximum absolute"
+_DEFAULT_SCATTER_COLOR_BY = "Quality range"
 _SCATTER_X_OPTIONS = [
     *COMPONENT_ORDER,
     "C6+ (nC6…nC10)",
@@ -704,24 +709,26 @@ Relative deviations are shown as:
         scatter_x_axis = st.selectbox(
             "X-axis",
             _SCATTER_X_OPTIONS,
-            index=_SCATTER_X_OPTIONS.index("C3"),
+            index=_SCATTER_X_OPTIONS.index(_DEFAULT_SCATTER_X_AXIS),
             key=f"aga8_refprop_scatter_x_{quality_filter}_{include_klab}_{view_mode}",
         )
         scatter_property = st.selectbox(
             "Deviation property",
             [metric[0] for metric in _METRICS],
+            index=[metric[0] for metric in _METRICS].index(_DEFAULT_SCATTER_PROPERTY),
             key=f"aga8_refprop_scatter_property_{quality_filter}_{include_klab}_{view_mode}",
         )
     with scatter_col_2:
         scatter_eos = st.selectbox(
             "EOS model",
             EOS_OPTIONS,
-            index=EOS_OPTIONS.index("DETAIL"),
+            index=EOS_OPTIONS.index(_DEFAULT_SCATTER_EOS),
             key=f"aga8_refprop_scatter_eos_{quality_filter}_{include_klab}_{view_mode}",
         )
         scatter_statistic = st.selectbox(
             "Deviation value",
             _SCATTER_STATISTICS,
+            index=_SCATTER_STATISTICS.index(_DEFAULT_SCATTER_STATISTIC),
             key=f"aga8_refprop_scatter_stat_{quality_filter}_{include_klab}_{view_mode}",
         )
     scatter_pressure = None
@@ -739,6 +746,7 @@ Relative deviations are shown as:
         scatter_color_by = st.selectbox(
             "Color by",
             ["Quality range", "Data source"],
+            index=["Quality range", "Data source"].index(_DEFAULT_SCATTER_COLOR_BY),
             key=f"aga8_refprop_scatter_color_{quality_filter}_{include_klab}_{view_mode}",
         )
 
