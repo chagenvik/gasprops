@@ -40,8 +40,8 @@ COMPOSITE_FILTERS = {
 }
 GROUP_FILTER_OPTIONS = ["All quality ranges", *QUALITY_GROUPS, *COMPOSITE_FILTERS]
 
-GERG_COLOR = "#1f77b4"
-DETAIL_COLOR = "#ff7f0e"
+GERG_COLOR = "#0000a2"
+DETAIL_COLOR = "#E69F00"
 
 COMPONENT_ORDER = [
     "N2", "CO2", "C1", "C2", "C3", "iC4", "nC4", "iC5", "nC5",
@@ -147,10 +147,10 @@ def _apply_axis_styling(figure: go.Figure, y_axis_range) -> go.Figure:
     return figure
 
 
-def _create_single_figure(station_id, df, eos_models, y_axis_range) -> go.Figure:
+def _create_single_figure(station_id, df, eos_models, y_axis_range, eos_colors) -> go.Figure:
     trace_map = {
-        "GERG-2008": {"color": GERG_COLOR, "gerg": True},
-        "DETAIL": {"color": DETAIL_COLOR, "gerg": False},
+        "GERG-2008": {"color": eos_colors["GERG-2008"], "gerg": True},
+        "DETAIL": {"color": eos_colors["DETAIL"], "gerg": False},
     }
     figure = make_subplots(rows=2, cols=2, subplot_titles=[m[0] for m in _METRICS])
 
@@ -182,7 +182,7 @@ def _create_single_figure(station_id, df, eos_models, y_axis_range) -> go.Figure
     return _apply_axis_styling(figure, y_axis_range)
 
 
-def _create_group_figure(results_by_station, eos_models, title_label, y_axis_range) -> go.Figure:
+def _create_group_figure(results_by_station, eos_models, title_label, y_axis_range, eos_colors) -> go.Figure:
     figure = make_subplots(rows=2, cols=2, subplot_titles=[m[0] for m in _METRICS])
 
     for station_index, (station_id, df) in enumerate(results_by_station.items()):
@@ -198,7 +198,7 @@ def _create_group_figure(results_by_station, eos_models, title_label, y_axis_ran
                         name="GERG-2008",
                         legendgroup="GERG-2008",
                         showlegend=index == 0 and station_index == 0,
-                        line={"color": GERG_COLOR, "dash": "solid"},
+                        line={"color": eos_colors["GERG-2008"], "dash": "solid"},
                         marker={"size": 5},
                         hovertemplate=(
                             f"Station: {station_id}<br>EOS: GERG-2008<br>"
@@ -219,7 +219,7 @@ def _create_group_figure(results_by_station, eos_models, title_label, y_axis_ran
                         name="DETAIL",
                         legendgroup="DETAIL",
                         showlegend=index == 0 and station_index == 0,
-                        line={"color": DETAIL_COLOR, "dash": "dash"},
+                        line={"color": eos_colors["DETAIL"], "dash": "dash"},
                         marker={"size": 5, "symbol": "square"},
                         hovertemplate=(
                             f"Station: {station_id}<br>EOS: DETAIL<br>"
@@ -294,6 +294,17 @@ def render(composition: dict | None) -> None:
             default=EOS_OPTIONS,
             key="aga8_refprop_eos",
         )
+        gerg_color_col, detail_color_col = st.columns(2)
+        gerg_color = gerg_color_col.color_picker(
+            "GERG color",
+            value=GERG_COLOR,
+            key="aga8_refprop_gerg_color",
+        )
+        detail_color = detail_color_col.color_picker(
+            "DETAIL color",
+            value=DETAIL_COLOR,
+            key="aga8_refprop_detail_color",
+        )
         use_default_y_range = st.checkbox(
             "Fix y-axis range for deviation plots",
             value=True,
@@ -311,6 +322,11 @@ def render(composition: dict | None) -> None:
     if not eos_models:
         st.warning("Select at least one EOS model.")
         return
+
+    eos_colors = {
+        "GERG-2008": gerg_color,
+        "DETAIL": detail_color,
+    }
 
     y_axis_range = None
     if use_default_y_range:
@@ -339,7 +355,7 @@ def render(composition: dict | None) -> None:
 
         results_df = load_results(selected_id)
         st.plotly_chart(
-            _create_single_figure(selected_id, results_df, eos_models, y_axis_range),
+            _create_single_figure(selected_id, results_df, eos_models, y_axis_range, eos_colors),
             use_container_width=True,
         )
         with st.expander("Show result data"):
@@ -357,7 +373,7 @@ def render(composition: dict | None) -> None:
         else:
             results_by_station = {station_id: load_results(station_id) for station_id in selected_ids}
             st.plotly_chart(
-                _create_group_figure(results_by_station, eos_models, quality_filter, y_axis_range),
+                _create_group_figure(results_by_station, eos_models, quality_filter, y_axis_range, eos_colors),
                 use_container_width=True,
             )
             with st.expander("Show station summary"):
