@@ -14,7 +14,9 @@ DATA_DIR = Path(__file__).resolve().parents[1] / "data" / "aga8_vs_refprop"
 METADATA_FILE = DATA_DIR / "metadata.json"
 RESULTS_DIR = DATA_DIR / "results"
 
-_ID_PATTERN = re.compile(r"^gasmet_\d{2}$")
+_ID_PATTERN = re.compile(r"^(gasmet_\d{2}|klab_gas_0[1-3])$")
+_GASMET_ID_PATTERN = re.compile(r"^gasmet_\d{2}$")
+_KLAB_ID_PATTERN = re.compile(r"^klab_gas_0[1-3]$")
 _ALLOWED_COMPONENTS = set(view.COMPONENT_ORDER)
 _REQUIRED_DEV_COLUMNS = [
     "P_bara",
@@ -30,19 +32,22 @@ def _raw_metadata():
         return json.load(fh)
 
 
-def test_metadata_contains_exactly_50_stations():
+def test_metadata_contains_50_gasmet_and_3_klab_gases():
     metadata_df = view.load_metadata()
-    assert len(metadata_df) == 50
+    assert len(metadata_df) == 53
+    assert int(metadata_df["id"].str.match(_GASMET_ID_PATTERN).sum()) == 50
+    assert int(metadata_df["id"].str.match(_KLAB_ID_PATTERN).sum()) == 3
 
 
-def test_all_station_ids_match_gasmet_pattern():
+def test_all_gas_ids_match_anonymized_patterns():
     metadata_df = view.load_metadata()
-    for station_id in metadata_df["id"]:
-        assert _ID_PATTERN.match(station_id), f"id {station_id} is not anonymized"
+    for gas_id in metadata_df["id"]:
+        assert _ID_PATTERN.match(gas_id), f"id {gas_id} is not anonymized"
 
 
 def test_result_files_are_only_anonymized_ids():
     expected = {f"gasmet_{index:02d}.csv" for index in range(1, 51)}
+    expected.update({f"klab_gas_{index:02d}.csv" for index in range(1, 4)})
     actual = {path.name for path in RESULTS_DIR.glob("*.csv")}
     assert actual == expected
 
@@ -51,28 +56,46 @@ def test_no_field_name_leakage_in_metadata():
     # Regression guard: every top-level key is an anonymized id, and compositions only
     # ever use known AGA8 component names — no free-text station identifiers anywhere.
     metadata = _raw_metadata()
-    for station_id, entry in metadata.items():
-        assert _ID_PATTERN.match(station_id)
-        assert entry["id"] == station_id
+    for gas_id, entry in metadata.items():
+        assert _ID_PATTERN.match(gas_id)
+        assert entry["id"] == gas_id
         assert set(entry["composition"]).issubset(_ALLOWED_COMPONENTS)
 
 
-def test_quality_groups_are_valid_and_sum_to_50():
+def test_quality_groups_are_valid_and_sum_to_total_gases():
     metadata_df = view.load_metadata()
     allowed = set(view.QUALITY_GROUPS)
     assert set(metadata_df["quality_group"]).issubset(allowed)
     counts = metadata_df["quality_group"].value_counts().to_dict()
-    assert sum(counts.values()) == 50
+    assert sum(counts.values()) == 53
 
 
-def test_quality_distribution_matches_aga8_standard():
+def test_gasmet_quality_distribution_matches_aga8_standard():
     # Locks in the standard-compliant classification (AGA8 Part 2, Table 5), computed via
     # the gasprops built-in validate_composition. Regression guard against the C6+/grouped
     # GERG-limit bug that previously mis-classified 11 stations as Intermediate.
-    counts = view.load_metadata()["quality_group"].value_counts().to_dict()
+    metadata_df = view.load_metadata()
+    gasmet_df = metadata_df[metadata_df["id"].str.match(_GASMET_ID_PATTERN)]
+    counts = gasmet_df["quality_group"].value_counts().to_dict()
     assert counts["Pipeline Quality"] == 23
     assert counts["Intermediate Quality"] == 8
     assert counts["Outside Intermediate Quality"] == 19
+
+
+def test_klab_gases_are_outside_intermediate_quality():
+    metadata_df = view.load_metadata()
+    klab_df = metadata_df[metadata_df["id"].str.match(_KLAB_ID_PATTERN)]
+    assert len(klab_df) == 3
+    assert set(klab_df["data_source"]) == {"K-lab"}
+    assert set(klab_df["quality_group"]) == {"Outside Intermediate Quality"}
+
+
+def test_klab_selection_covers_low_medium_and_just_below_one_percent_detail_density_deviation():
+    metadata = _raw_metadata()
+    assert metadata["klab_gas_01"]["detail_density_abs_max_rel_dev"] == pytest.approx(0.300451513)
+    assert metadata["klab_gas_02"]["detail_density_abs_max_rel_dev"] == pytest.approx(0.633291165)
+    assert metadata["klab_gas_03"]["detail_density_abs_max_rel_dev"] == pytest.approx(0.938754215)
+    assert metadata["klab_gas_02"]["composition"]["C3"] == pytest.approx(9.912156)
 
 
 def test_grouped_gerg_limits_are_enforced():
@@ -103,6 +126,7 @@ def test_outside_pipeline_composite_filter_covers_non_pipeline():
     groups = view.COMPOSITE_FILTERS["Outside Pipeline Quality Range"]
     assert set(groups) == {"Intermediate Quality", "Outside Intermediate Quality"}
     metadata_df = view.load_metadata()
+    metadata_df = metadata_df[metadata_df["id"].str.match(_GASMET_ID_PATTERN)]
     non_pipeline = int((metadata_df["quality_group"] != "Pipeline Quality").sum())
     covered = int(metadata_df["quality_group"].isin(groups).sum())
     assert covered == non_pipeline == 27

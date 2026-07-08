@@ -240,7 +240,7 @@ Computes thermodynamic and transport properties using two calculation engines:
    - **AGA8 Validation** — check composition according to quality ranges in the AGA8 report.
    - **Flash Calculation** — NeqSim TP flash for single tables or P/T ranges, with gas/liquid outputs.
    - **Phase Envelope** — phase-boundary analysis with NeqSim.
-   - **AGA8 vs REFPROP** — browse pre-computed GERG-2008/DETAIL deviations vs a REFPROP reference for 50 anonymized metering stations, filterable by AGA8 quality range.
+   - **AGA8 vs REFPROP** — browse pre-computed GERG-2008/DETAIL deviations vs a REFPROP reference for anonymized metering-station and K-lab gases, filterable by AGA8 quality range.
 4. The composition you enter is shared across all tabs.
 
 **Composition format (AGA8)**

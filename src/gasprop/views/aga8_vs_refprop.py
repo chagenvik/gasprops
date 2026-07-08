@@ -98,6 +98,7 @@ def load_metadata() -> pd.DataFrame:
         rows.append(
             {
                 "id": entry["id"],
+                "data_source": entry.get("data_source", "Norwegian gas grid"),
                 "quality_group": classify_quality(detail_violations, gerg_violations),
                 "temperature_c": entry.get("temperature_c"),
                 "cricondentherm": entry.get("cricondentherm"),
@@ -201,7 +202,7 @@ def _create_group_figure(results_by_station, eos_models, title_label, y_axis_ran
                         line={"color": eos_colors["GERG-2008"], "dash": "solid"},
                         marker={"size": 5},
                         hovertemplate=(
-                            f"Station: {station_id}<br>EOS: GERG-2008<br>"
+                            f"Gas: {station_id}<br>EOS: GERG-2008<br>"
                             "Pressure: %{x:.1f} bara<br>"
                             "Relative deviation: %{y:.4f}%<extra></extra>"
                         ),
@@ -222,7 +223,7 @@ def _create_group_figure(results_by_station, eos_models, title_label, y_axis_ran
                         line={"color": eos_colors["DETAIL"], "dash": "dash"},
                         marker={"size": 5, "symbol": "square"},
                         hovertemplate=(
-                            f"Station: {station_id}<br>EOS: DETAIL<br>"
+                            f"Gas: {station_id}<br>EOS: DETAIL<br>"
                             "Pressure: %{x:.1f} bara<br>"
                             "Relative deviation: %{y:.4f}%<extra></extra>"
                         ),
@@ -260,10 +261,16 @@ Outside Pipeline Quality Natural Gas"**, presented at the **Global Flow Measurem
 2026**.
 
 This tab shows pre-computed comparisons for 50 anonymized gas metering stations connected to
-the Norwegian gas grid (`gasmet_01`–`gasmet_50`). In the source data, gas compositions were
-measured up to **C6+**. For the calculations shown here, the reported C6+ fraction was
-distributed into **nC6–nC10** using a fixed split: **nC6 50.0%, nC7 30.0%, nC8 12.5%,
-nC9 5.0%, and nC10 2.5%**.
+the Norwegian gas grid (`gasmet_01`–`gasmet_50`) and three anonymized K-lab gases
+(`klab_gas_01`–`klab_gas_03`). In the source data for the gas metering stations, gas
+compositions were measured up to **C6+**. For the calculations shown here, the reported C6+
+fraction was distributed into **nC6–nC10** using a fixed split: **nC6 50.0%, nC7 30.0%,
+nC8 12.5%, nC9 5.0%, and nC10 2.5%**.
+
+The K-lab gases originate from the gas metering station at the K-lab VGII multiphase flow loop,
+as presented in the paper. They typically contain higher C5+ content than most of the
+`gasmet` gases, and are more representative of gases found closer to the wells, for example at
+first-stage and test separators.
 
 For each composition, AGA8 DETAIL and AGA8 GERG-2008 properties were calculated with `pvtlib` and
 compared against REFPROP reference results obtained through `ctREFPROP`. REFPROP requires a
@@ -278,12 +285,15 @@ REFPROP in percent.
         st.markdown(
             """
 This tab presents pre-computed property comparisons for 50 anonymized gas metering stations
-connected to the Norwegian gas grid. The station identities have been removed and replaced by
-neutral identifiers (`gasmet_01`–`gasmet_50`). The data are made available for this study with
-permission, but no field or station names are included in the public app.
+connected to the Norwegian gas grid and three anonymized K-lab gases. The metering-station
+identities have been removed and replaced by neutral identifiers (`gasmet_01`–`gasmet_50`), and
+the selected K-lab gases are identified only as `klab_gas_01`–`klab_gas_03`. The data are made
+available for this study with permission, but no field, station, or sample names are included in
+the public app.
 
-The source compositions were measured up to **C6+**. In this study, the reported C6+ fraction
-was distributed into **nC6–nC10** using the fixed split from the paper:
+The source compositions for the gas metering stations were measured up to **C6+**. In this
+study, the reported C6+ fraction was distributed into **nC6–nC10** using the fixed split from
+the paper:
 
 | Component | Fraction of C6+ |
 |---|---:|
@@ -292,6 +302,11 @@ was distributed into **nC6–nC10** using the fixed split from the paper:
 | nC8 | 12.5% |
 | nC9 | 5.0% |
 | nC10 | 2.5% |
+
+The three K-lab gases originate from the gas metering station at the K-lab VGII multiphase flow
+loop. They typically contain higher C5+ content than most of the `gasmet` gases, and are included
+as representative examples of richer gases found closer to the wells, for example at first-stage
+and test separators.
 
 For each gas composition, the cricondentherm was calculated with NeqSim, and the analysis
 temperature was set to the cricondentherm plus 10 °C, with a minimum temperature of 10 °C.
@@ -314,20 +329,20 @@ Relative deviations are shown as:
         st.error(str(error))
         return
 
-    group_counts = metadata_df["quality_group"].value_counts()
-    metric_cols = st.columns(4)
-    metric_cols[0].metric("Stations", len(metadata_df))
-    metric_cols[1].metric("Pipeline Quality", int(group_counts.get("Pipeline Quality", 0)))
-    metric_cols[2].metric("Intermediate Quality", int(group_counts.get("Intermediate Quality", 0)))
-    metric_cols[3].metric(
-        "Outside Intermediate", int(group_counts.get("Outside Intermediate Quality", 0))
-    )
-
     control_col_1, control_col_2 = st.columns(2)
     with control_col_1:
+        include_klab = st.checkbox(
+            "Include K-lab gases",
+            value=False,
+            key="aga8_refprop_include_klab",
+            help=(
+                "Include three anonymized K-lab VGII gases selected to represent low, "
+                "medium, and high DETAIL density deviations."
+            ),
+        )
         view_mode = st.radio(
             "View mode",
-            ["Grouped stations", "Single station"],
+            ["Grouped gases", "Single gas"],
             index=0,
             key="aga8_refprop_view_mode",
         )
@@ -336,6 +351,26 @@ Relative deviations are shown as:
             GROUP_FILTER_OPTIONS,
             key="aga8_refprop_quality_filter",
         )
+
+    plot_metadata_df = metadata_df.copy()
+    if not include_klab:
+        plot_metadata_df = plot_metadata_df[plot_metadata_df["data_source"] != "K-lab"]
+
+    previous_include_klab = st.session_state.get("aga8_refprop_previous_include_klab", False)
+    if include_klab and not previous_include_klab:
+        st.session_state["aga8_refprop_fix_y"] = True
+        st.session_state["aga8_refprop_ymin"] = -1.3
+        st.session_state["aga8_refprop_ymax"] = 1.3
+    st.session_state["aga8_refprop_previous_include_klab"] = include_klab
+
+    group_counts = plot_metadata_df["quality_group"].value_counts()
+    metric_cols = st.columns(4)
+    metric_cols[0].metric("Gases", len(plot_metadata_df))
+    metric_cols[1].metric("Pipeline Quality", int(group_counts.get("Pipeline Quality", 0)))
+    metric_cols[2].metric("Intermediate Quality", int(group_counts.get("Intermediate Quality", 0)))
+    metric_cols[3].metric(
+        "Outside Intermediate", int(group_counts.get("Outside Intermediate Quality", 0))
+    )
     with control_col_2:
         eos_models = st.multiselect(
             "EOS models",
@@ -381,20 +416,20 @@ Relative deviations are shown as:
     if use_default_y_range:
         y_axis_range = [min(y_axis_min, y_axis_max), max(y_axis_min, y_axis_max)]
 
-    filtered_df = metadata_df
+    filtered_df = plot_metadata_df
     if quality_filter in COMPOSITE_FILTERS:
-        filtered_df = metadata_df[metadata_df["quality_group"].isin(COMPOSITE_FILTERS[quality_filter])]
+        filtered_df = plot_metadata_df[plot_metadata_df["quality_group"].isin(COMPOSITE_FILTERS[quality_filter])]
     elif quality_filter != "All quality ranges":
-        filtered_df = metadata_df[metadata_df["quality_group"] == quality_filter]
+        filtered_df = plot_metadata_df[plot_metadata_df["quality_group"] == quality_filter]
 
     available_ids = filtered_df["id"].tolist()
     if not available_ids:
-        st.info("No stations available for the selected quality range.")
+        st.info("No gases available for the selected quality range.")
         return
 
-    if view_mode == "Single station":
+    if view_mode == "Single gas":
         selected_id = st.selectbox(
-            "Station", available_ids, key=f"aga8_refprop_single_id_{quality_filter}"
+            "Gas", available_ids, key=f"aga8_refprop_single_id_{quality_filter}_{include_klab}"
         )
         selected_meta = filtered_df[filtered_df["id"] == selected_id].iloc[0]
         st.write(f"**Quality range:** {selected_meta['quality_group']}")
@@ -411,21 +446,21 @@ Relative deviations are shown as:
             st.dataframe(results_df, use_container_width=True)
     else:
         selected_ids = st.multiselect(
-            "Stations",
+            "Gases",
             available_ids,
             default=available_ids,
-            key=f"aga8_refprop_group_ids_{quality_filter}",
+            key=f"aga8_refprop_group_ids_{quality_filter}_{include_klab}",
         )
-        st.write(f"Showing **{len(selected_ids)}** stations.")
+        st.write(f"Showing **{len(selected_ids)}** gases.")
         if not selected_ids:
-            st.info("Select at least one station.")
+            st.info("Select at least one gas.")
         else:
             results_by_station = {station_id: load_results(station_id) for station_id in selected_ids}
             st.plotly_chart(
                 _create_group_figure(results_by_station, eos_models, quality_filter, y_axis_range, eos_colors),
                 use_container_width=True,
             )
-            with st.expander("Show station summary"):
+            with st.expander("Show gas summary"):
                 st.dataframe(
                     filtered_df[filtered_df["id"].isin(selected_ids)],
                     use_container_width=True,
@@ -435,9 +470,9 @@ Relative deviations are shown as:
     st.divider()
     st.markdown("#### Gas composition")
     composition_id = st.selectbox(
-        "Select station",
-        metadata_df["id"].tolist(),
-        key="aga8_refprop_composition_id",
+        "Select gas",
+        plot_metadata_df["id"].tolist(),
+        key=f"aga8_refprop_composition_id_{include_klab}",
     )
     st.dataframe(_composition_dataframe(composition_id), use_container_width=True, hide_index=True)
     st.metric("C6+ (nC6…nC10)", f"{_c6_plus_mol_pct(composition_id):.4f} mol %")
@@ -452,7 +487,7 @@ Relative deviations are shown as:
         source_module="aga8_vs_refprop",
         base_name_provider=lambda: composition_id,
         help_text=(
-            "Save this station's composition as a temporary session fluid so it can be "
+            "Save this gas composition as a temporary session fluid so it can be "
             "reused in other tabs (e.g. Mix). Kept only in memory for this browser session."
         ),
     )

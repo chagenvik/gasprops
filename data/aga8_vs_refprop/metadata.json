@@ -1198,5 +1198,83 @@
     "quality_group": "Pipeline Quality",
     "detail_violations": 0,
     "gerg_violations": 0
+  },
+  "klab_gas_01": {
+    "id": "klab_gas_01",
+    "data_source": "K-lab",
+    "composition": {
+      "N2": 1.82334895335496,
+      "CO2": 2.23198372949877,
+      "C1": 86.4019258397741,
+      "C2": 8.44926478422768,
+      "C3": 0.493337533094303,
+      "iC4": 0.0551004077407922,
+      "nC4": 0.174179301227462,
+      "iC5": 0.0736989541698352,
+      "nC5": 0.0820500583922213,
+      "nC6": 0.0716376078806962,
+      "nC7": 0.059512555451631,
+      "nC8": 0.0264627672580524,
+      "nC9": 0.00526434993847232,
+      "nC10": 0.0522331579910027
+    },
+    "temperature_c": 59.80037330039602,
+    "cricondentherm": 49.80037330039602,
+    "quality_group": "Outside Intermediate Quality",
+    "detail_violations": 2,
+    "gerg_violations": 1,
+    "detail_density_abs_max_rel_dev": 0.3004515129996681
+  },
+  "klab_gas_02": {
+    "id": "klab_gas_02",
+    "data_source": "K-lab",
+    "composition": {
+      "N2": 1.13580123578725,
+      "CO2": 1.65724865856645,
+      "C1": 77.7183167098906,
+      "C2": 5.77090864861961,
+      "C3": 9.91215596943316,
+      "iC4": 0.540149227085059,
+      "nC4": 0.739149565745354,
+      "iC5": 0.413913839039053,
+      "nC5": 0.377136014851491,
+      "nC6": 0.598838482800127,
+      "nC7": 0.740759314098177,
+      "nC8": 0.321537402743632,
+      "nC9": 0.0378768851164618,
+      "nC10": 0.0362080462236262
+    },
+    "temperature_c": 91.05949017990889,
+    "cricondentherm": 81.05949017990889,
+    "quality_group": "Outside Intermediate Quality",
+    "detail_violations": 5,
+    "gerg_violations": 4,
+    "detail_density_abs_max_rel_dev": 0.6332911654925891
+  },
+  "klab_gas_03": {
+    "id": "klab_gas_03",
+    "data_source": "K-lab",
+    "composition": {
+      "N2": 1.23045549262754,
+      "CO2": 2.38003924337462,
+      "C1": 80.3738830750828,
+      "C2": 11.3439707457062,
+      "C3": 0.822936735622858,
+      "iC4": 0.630334945639425,
+      "nC4": 0.818257349250175,
+      "iC5": 0.451657804175503,
+      "nC5": 0.389702528096067,
+      "nC6": 0.552943508374676,
+      "nC7": 0.633627466616504,
+      "nC8": 0.282247409099783,
+      "nC9": 0.0472713794567522,
+      "nC10": 0.0426723168771106
+    },
+    "temperature_c": 88.36876405239065,
+    "cricondentherm": 78.36876405239065,
+    "quality_group": "Outside Intermediate Quality",
+    "detail_violations": 5,
+    "gerg_violations": 4,
+    "detail_density_abs_max_rel_dev": 0.9387542147416122
   }
 }
