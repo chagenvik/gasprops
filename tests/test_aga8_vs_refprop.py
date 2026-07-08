@@ -78,7 +78,7 @@ def test_quality_distribution_matches_aga8_standard():
 def test_grouped_gerg_limits_are_enforced():
     # A composition within each individual iC5/nC5 limit but exceeding the grouped
     # iC5+nC5 (<=0.5%) and C8+ (<=0.05%) intermediate limits must be flagged. This is the
-    # exact grouping the earlier GFMW2026 code missed for GERG.
+    # exact grouping an earlier external validation script missed for GERG.
     composition = {
         "C1": 90.0, "C2": 5.0, "C3": 3.0,
         "iC5": 0.4, "nC5": 0.4,
