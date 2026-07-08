@@ -28,7 +28,7 @@ PROPERTIES = {
 
 _DEFAULT_POINTS = pd.DataFrame({
     "Pressure": [1.0, 10.0, 50.0, 100.0, 200.0],
-    "Temperature": [15.0, 15.0, 15.0, 15.0, 15.0],
+    "Temperature": [60.0, 60.0, 60.0, 60.0, 60.0],
 })
 _STATE_MULTI = "gp_multi_result"
 

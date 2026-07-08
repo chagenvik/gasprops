@@ -5,7 +5,19 @@ from pathlib import Path
 import streamlit as st
 
 from .composition_input import composition_input, composition_io_controls
-from .views import comparison, flash, mix, multi, phase, single, surface, tables, uncertainty, validation
+from .views import (
+    aga8_vs_refprop,
+    comparison,
+    flash,
+    mix,
+    multi,
+    phase,
+    single,
+    surface,
+    tables,
+    uncertainty,
+    validation,
+)
 
 LOGO_PATH = Path(__file__).resolve().parents[2] / "assets" / "logo.png"
 
@@ -19,6 +31,7 @@ VIEW_MAP = {
     "Uncertainty Analysis": uncertainty.render,
     "AGA8 EoS Comparison": comparison.render,
     "AGA8 Validation": validation.render,
+    "AGA8 vs REFPROP": aga8_vs_refprop.render,
     "Flash Calculation": flash.render,
     "Phase Envelope": phase.render,
 }
@@ -80,7 +93,11 @@ def run_app() -> None:
         }
 
         [data-testid="stTabs"] [data-baseweb="tab-list"] {
+            flex-wrap: wrap;
             gap: 0.4rem;
+            row-gap: 0.55rem;
+            overflow: visible;
+            height: auto;
         }
         [data-testid="stTabs"] [data-baseweb="tab"] {
             border-radius: 999px;
@@ -88,6 +105,7 @@ def run_app() -> None:
             background: rgba(255, 255, 255, 0.85);
             color: #19567d;
             padding: 0.38rem 0.95rem;
+            flex: 0 0 auto;
             transition: all 0.2s ease;
         }
         [data-testid="stTabs"] [aria-selected="true"] {
@@ -98,18 +116,31 @@ def run_app() -> None:
         }
 
         /* Highlight NeqSim-backed tabs (Flash + Phase Envelope) */
-        [data-testid="stTabs"] [data-baseweb="tab"]:nth-child(9),
-        [data-testid="stTabs"] [data-baseweb="tab"]:nth-child(10) {
+        [data-testid="stTabs"] [data-baseweb="tab"]:nth-child(10),
+        [data-testid="stTabs"] [data-baseweb="tab"]:nth-child(11) {
             border-color: rgba(15, 126, 140, 0.3);
             background: rgba(234, 249, 250, 0.95);
             color: #0f6773;
         }
-        [data-testid="stTabs"] [data-baseweb="tab"]:nth-child(9)[aria-selected="true"],
-        [data-testid="stTabs"] [data-baseweb="tab"]:nth-child(10)[aria-selected="true"] {
+        [data-testid="stTabs"] [data-baseweb="tab"]:nth-child(10)[aria-selected="true"],
+        [data-testid="stTabs"] [data-baseweb="tab"]:nth-child(11)[aria-selected="true"] {
             background: linear-gradient(120deg, #0f8bd5 0%, #14a99a 100%);
             color: white;
             border-color: rgba(13, 122, 133, 0.5);
             box-shadow: 0 8px 18px rgba(16, 132, 143, 0.25);
+        }
+
+        /* Distinguish the AGA8 vs REFPROP tab (data-study tab) */
+        [data-testid="stTabs"] [data-baseweb="tab"]:nth-child(9) {
+            border-color: rgba(124, 58, 173, 0.32);
+            background: rgba(245, 238, 252, 0.95);
+            color: #6b2fae;
+        }
+        [data-testid="stTabs"] [data-baseweb="tab"]:nth-child(9)[aria-selected="true"] {
+            background: linear-gradient(120deg, #7c3aad 0%, #a465e6 100%);
+            color: white;
+            border-color: rgba(108, 47, 174, 0.5);
+            box-shadow: 0 8px 18px rgba(108, 47, 174, 0.25);
         }
 
         .stButton > button {
@@ -239,6 +270,7 @@ Computes thermodynamic and transport properties using two calculation engines:
    - **AGA8 Validation** — check composition according to quality ranges in the AGA8 report.
    - **Flash Calculation** — NeqSim TP flash for single tables or P/T ranges, with gas/liquid outputs.
    - **Phase Envelope** — phase-boundary analysis with NeqSim.
+   - **AGA8 vs REFPROP** — browse pre-computed GERG-2008/DETAIL deviations vs a REFPROP reference for anonymized metering-station and K-lab gases, filterable by AGA8 quality range.
 4. The composition you enter is shared across all tabs.
 
 **Composition format (AGA8)**

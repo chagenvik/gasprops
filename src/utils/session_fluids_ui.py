@@ -21,6 +21,10 @@ LIFECYCLE_HELP = (
 )
 
 
+def _save_message_key(key: str) -> str:
+    return f"{key}_success_message"
+
+
 def render_temporary_save_button(
     *,
     key: str,
@@ -33,6 +37,11 @@ def render_temporary_save_button(
     help_text: str | None = None,
     disabled: bool = False,
 ) -> SessionFluid | None:
+    message_key = _save_message_key(key)
+    pending_message = st.session_state.pop(message_key, None)
+    if pending_message:
+        st.success(pending_message)
+
     cap_reached = len(list_session_fluids()) >= MAX_SESSION_FLUIDS
     button_disabled = disabled or cap_reached
     tooltip = help_text or LIFECYCLE_HELP
@@ -70,7 +79,8 @@ def render_temporary_save_button(
         st.error(str(exc))
         return None
 
-    st.success(f"Saved as “{fluid.display_name}”. {LIFECYCLE_HELP}")
+    st.session_state[message_key] = f"Saved as “{fluid.display_name}”. {LIFECYCLE_HELP}"
+    st.rerun()
     return fluid
 
 

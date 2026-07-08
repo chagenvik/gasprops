@@ -51,7 +51,7 @@ def render(composition: dict | None):
     pressure_unit = c1.selectbox("Pressure unit", ["bara", "barg", "kPa", "MPa"], index=0, key="single_p_unit")
     pressure = c2.number_input(
         f"Pressure [{pressure_unit}]",
-        min_value=0.0, max_value=1000.0, value=10.0, step=0.1, format="%.3f",
+        min_value=0.0, max_value=1000.0, value=100.0, step=0.1, format="%.3f",
         key="single_pressure",
     )
 
@@ -70,7 +70,7 @@ def render(composition: dict | None):
     c5, c6 = st.columns(2)
     temperature = c5.number_input(
         f"Temperature [{temp_label}]",
-        min_value=t_floor, max_value=2000.0, value=20.0, step=0.5, format="%.2f",
+        min_value=t_floor, max_value=2000.0, value=60.0, step=0.5, format="%.2f",
         key="single_temperature",
     )
 

@@ -131,7 +131,7 @@ def save_session_fluid(
     if not canonical_csv or not canonical_csv.strip():
         raise ValueError("Cannot save an empty composition.")
 
-    fluids = _registry()
+    fluids = list(_registry())
     if len(fluids) >= MAX_SESSION_FLUIDS:
         raise SessionFluidLimitError(
             f"Session fluid library is full ({MAX_SESSION_FLUIDS} entries). "
@@ -150,7 +150,7 @@ def save_session_fluid(
         source_context=source_context,
         tags=tuple(tags),
     )
-    fluids.append(fluid)
+    _replace_registry([*fluids, fluid])
     return fluid
 
 
