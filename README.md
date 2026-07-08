@@ -1,6 +1,6 @@
 # gasprops
 
-[![Streamlit app](https://img.shields.io/badge/streamlit-app-ff4b4b?logo=streamlit&logoColor=white)](https://github.com/chagenvik/gasprops)
+[![Streamlit app](https://img.shields.io/badge/streamlit-app-ff4b4b?logo=streamlit&logoColor=white)](https://gasprops.radix.equinor.com/)
 [![python](https://img.shields.io/badge/python-3.11-blue)](runtime.txt)
 [![Tests](https://github.com/chagenvik/gasprops/actions/workflows/pytest.yml/badge.svg)](https://github.com/chagenvik/gasprops/actions/workflows/pytest.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
