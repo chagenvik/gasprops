@@ -187,6 +187,73 @@ def test_wide_composition_dataframe_has_one_column_per_gas_and_c6_plus_row():
     assert gasmet_c6_plus == pytest.approx(view._c6_plus_mol_pct("gasmet_01"))
 
 
+def test_scatter_dataframe_can_plot_density_deviation_against_c3_content():
+    metadata_df = view.load_metadata()
+    gas_ids = ["gasmet_01", "gasmet_02"]
+    results = {gas_id: view.load_results(gas_id) for gas_id in gas_ids}
+    df = view._scatter_dataframe(
+        gas_ids,
+        metadata_df,
+        results,
+        "C3",
+        "DETAIL",
+        "Mass Density",
+        "At selected pressure",
+        100.0,
+    )
+    composition = view._load_compositions()["gasmet_01"]
+    expected_deviation = results["gasmet_01"].loc[
+        results["gasmet_01"]["P_bara"] == 100.0, "DETAIL_rho_rel_dev"
+    ].iloc[0]
+    assert list(df.columns) == ["Gas", "Quality range", "Data source", "X", "Relative deviation [%]"]
+    assert df.loc[df["Gas"] == "gasmet_01", "X"].iloc[0] == pytest.approx(composition["C3"])
+    assert df.loc[df["Gas"] == "gasmet_01", "Relative deviation [%]"].iloc[0] == pytest.approx(
+        expected_deviation
+    )
+
+
+def test_scatter_dataframe_supports_c6_plus_and_max_absolute_deviation():
+    metadata_df = view.load_metadata()
+    results = {"gasmet_01": view.load_results("gasmet_01")}
+    df = view._scatter_dataframe(
+        ["gasmet_01"],
+        metadata_df,
+        results,
+        "C6+ (nC6…nC10)",
+        "GERG-2008",
+        "Mass Density",
+        "Maximum absolute",
+        None,
+    )
+    assert df["X"].iloc[0] == pytest.approx(view._c6_plus_mol_pct("gasmet_01"))
+    assert df["Relative deviation [%]"].iloc[0] == pytest.approx(
+        results["gasmet_01"]["GERG_rho_rel_dev"].abs().max()
+    )
+
+
+def test_scatter_figure_groups_markers_by_selected_category():
+    metadata_df = view.load_metadata()
+    gas_ids = ["gasmet_01", "klab_gas_01"]
+    results = {gas_id: view.load_results(gas_id) for gas_id in gas_ids}
+    df = view._scatter_dataframe(
+        gas_ids,
+        metadata_df,
+        results,
+        "C3",
+        "DETAIL",
+        "Mass Density",
+        "At selected pressure",
+        100.0,
+    )
+    figure = view._create_scatter_figure(
+        df,
+        "C3 [mol %]",
+        "DETAIL Mass Density relative deviation [%] at 100 bara",
+        "Data source",
+    )
+    assert {trace.name for trace in figure.data} == {"Norwegian gas grid", "K-lab"}
+
+
 def test_grouped_figure_uses_combined_traces_for_performance():
     results = {
         "gasmet_01": view.load_results("gasmet_01"),
