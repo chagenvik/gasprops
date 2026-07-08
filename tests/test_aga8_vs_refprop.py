@@ -179,6 +179,14 @@ def test_composition_dataframe_has_expected_shape():
     assert set(df["Component"]).issubset(_ALLOWED_COMPONENTS)
 
 
+def test_wide_composition_dataframe_has_one_column_per_gas_and_c6_plus_row():
+    df = view._composition_wide_dataframe(["gasmet_01", "klab_gas_01"])
+    assert list(df.columns) == ["Component", "gasmet_01", "klab_gas_01"]
+    assert "C6+ (nC6…nC10)" in df["Component"].tolist()
+    gasmet_c6_plus = df.loc[df["Component"] == "C6+ (nC6…nC10)", "gasmet_01"].iloc[0]
+    assert gasmet_c6_plus == pytest.approx(view._c6_plus_mol_pct("gasmet_01"))
+
+
 def test_grouped_figure_uses_combined_traces_for_performance():
     results = {
         "gasmet_01": view.load_results("gasmet_01"),

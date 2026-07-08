@@ -1,5 +1,5 @@
 """
-AGA8 vs REFPROP tab — results from GFMW2026 paper.
+AGA8 vs REFPROP tab — results from Global Flow Measurement Workshop 2026 paper.
 
 Interactive viewer for pre-computed GERG-2008 and DETAIL relative deviations against a
 REFPROP reference across a pressure sweep, for 50 anonymized natural-gas metering stations
@@ -268,6 +268,23 @@ def _composition_dataframe(station_id: str) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def _composition_wide_dataframe(gas_ids: list[str]) -> pd.DataFrame:
+    compositions = _load_compositions()
+    rows = []
+    for component in COMPONENT_ORDER:
+        row = {"Component": component}
+        for gas_id in gas_ids:
+            row[gas_id] = float(compositions[gas_id].get(component, 0.0))
+        rows.append(row)
+    c6_plus_row = {"Component": "C6+ (nC6…nC10)"}
+    for gas_id in gas_ids:
+        c6_plus_row[gas_id] = sum(
+            float(compositions[gas_id].get(component, 0.0)) for component in C6_PLUS_COMPONENTS
+        )
+    rows.append(c6_plus_row)
+    return pd.DataFrame(rows)
+
+
 def _c6_plus_mol_pct(station_id: str) -> float:
     composition = _load_compositions()[station_id]
     return sum(float(composition.get(component, 0.0)) for component in C6_PLUS_COMPONENTS)
@@ -275,7 +292,7 @@ def _c6_plus_mol_pct(station_id: str) -> float:
 
 def render(composition: dict | None) -> None:
     """Render the AGA8 vs REFPROP viewer."""
-    st.subheader("AGA8 vs REFPROP — results from GFMW2026 paper")
+    st.subheader("AGA8 vs REFPROP — results from Global Flow Measurement Workshop 2026 paper")
     st.markdown(
         """
 The results in this tab originate from the paper **"Uncertainty in Calculated Gas Properties
@@ -445,6 +462,7 @@ Relative deviations are shown as:
         st.info("No gases available for the selected quality range.")
         return
 
+    composition_table_ids = available_ids
     if view_mode == "Single gas":
         selected_id = st.selectbox(
             "Gas", available_ids, key=f"aga8_refprop_single_id_{quality_filter}_{include_klab}"
@@ -469,6 +487,7 @@ Relative deviations are shown as:
             default=available_ids,
             key=f"aga8_refprop_group_ids_{quality_filter}_{include_klab}",
         )
+        composition_table_ids = selected_ids
         st.write(f"Showing **{len(selected_ids)}** gases.")
         if not selected_ids:
             st.info("Select at least one gas.")
@@ -488,25 +507,46 @@ Relative deviations are shown as:
 
     st.divider()
     st.markdown("#### Gas composition")
-    composition_id = st.selectbox(
-        "Select gas",
-        plot_metadata_df["id"].tolist(),
-        key=f"aga8_refprop_composition_id_{include_klab}",
+    show_wide_composition_table = st.toggle(
+        "Show compositions in one table",
+        value=False,
+        key=f"aga8_refprop_composition_wide_{quality_filter}_{include_klab}_{view_mode}",
+        help="Show components as rows and one column per gas for the current filter/selection.",
     )
-    st.dataframe(_composition_dataframe(composition_id), use_container_width=True, hide_index=True)
-    st.metric("C6+ (nC6…nC10)", f"{_c6_plus_mol_pct(composition_id):.4f} mol %")
 
-    selected_composition = _load_compositions()[composition_id]
-    render_temporary_save_button(
-        key="aga8_refprop_session_save",
-        canonical_csv_provider=lambda: export_composition_values_to_canonical_csv(
-            selected_composition
-        ),
-        format_family=FORMAT_AGA8,
-        source_module="aga8_vs_refprop",
-        base_name_provider=lambda: composition_id,
-        help_text=(
-            "Save this gas composition as a temporary session fluid so it can be "
-            "reused in other tabs (e.g. Mix). Kept only in memory for this browser session."
-        ),
-    )
+    if show_wide_composition_table:
+        if not composition_table_ids:
+            st.info("Select at least one gas to show the composition table.")
+        else:
+            st.caption(
+                "Wide composition table for the current gas filter/selection. Values are mol %."
+            )
+            st.dataframe(
+                _composition_wide_dataframe(composition_table_ids),
+                use_container_width=True,
+                hide_index=True,
+            )
+    else:
+        composition_options = composition_table_ids or plot_metadata_df["id"].tolist()
+        composition_id = st.selectbox(
+            "Select gas",
+            composition_options,
+            key=f"aga8_refprop_composition_id_{include_klab}_{quality_filter}_{view_mode}",
+        )
+        st.dataframe(_composition_dataframe(composition_id), use_container_width=True, hide_index=True)
+        st.metric("C6+ (nC6…nC10)", f"{_c6_plus_mol_pct(composition_id):.4f} mol %")
+
+        selected_composition = _load_compositions()[composition_id]
+        render_temporary_save_button(
+            key="aga8_refprop_session_save",
+            canonical_csv_provider=lambda: export_composition_values_to_canonical_csv(
+                selected_composition
+            ),
+            format_family=FORMAT_AGA8,
+            source_module="aga8_vs_refprop",
+            base_name_provider=lambda: composition_id,
+            help_text=(
+                "Save this gas composition as a temporary session fluid so it can be "
+                "reused in other tabs (e.g. Mix). Kept only in memory for this browser session."
+            ),
+        )
