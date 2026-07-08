@@ -31,9 +31,9 @@ VIEW_MAP = {
     "Uncertainty Analysis": uncertainty.render,
     "AGA8 EoS Comparison": comparison.render,
     "AGA8 Validation": validation.render,
+    "AGA8 vs REFPROP": aga8_vs_refprop.render,
     "Flash Calculation": flash.render,
     "Phase Envelope": phase.render,
-    "AGA8 vs REFPROP": aga8_vs_refprop.render,
 }
 
 
@@ -93,7 +93,11 @@ def run_app() -> None:
         }
 
         [data-testid="stTabs"] [data-baseweb="tab-list"] {
+            flex-wrap: wrap;
             gap: 0.4rem;
+            row-gap: 0.55rem;
+            overflow: visible;
+            height: auto;
         }
         [data-testid="stTabs"] [data-baseweb="tab"] {
             border-radius: 999px;
@@ -101,6 +105,7 @@ def run_app() -> None:
             background: rgba(255, 255, 255, 0.85);
             color: #19567d;
             padding: 0.38rem 0.95rem;
+            flex: 0 0 auto;
             transition: all 0.2s ease;
         }
         [data-testid="stTabs"] [aria-selected="true"] {
@@ -111,14 +116,14 @@ def run_app() -> None:
         }
 
         /* Highlight NeqSim-backed tabs (Flash + Phase Envelope) */
-        [data-testid="stTabs"] [data-baseweb="tab"]:nth-child(9),
-        [data-testid="stTabs"] [data-baseweb="tab"]:nth-child(10) {
+        [data-testid="stTabs"] [data-baseweb="tab"]:nth-child(10),
+        [data-testid="stTabs"] [data-baseweb="tab"]:nth-child(11) {
             border-color: rgba(15, 126, 140, 0.3);
             background: rgba(234, 249, 250, 0.95);
             color: #0f6773;
         }
-        [data-testid="stTabs"] [data-baseweb="tab"]:nth-child(9)[aria-selected="true"],
-        [data-testid="stTabs"] [data-baseweb="tab"]:nth-child(10)[aria-selected="true"] {
+        [data-testid="stTabs"] [data-baseweb="tab"]:nth-child(10)[aria-selected="true"],
+        [data-testid="stTabs"] [data-baseweb="tab"]:nth-child(11)[aria-selected="true"] {
             background: linear-gradient(120deg, #0f8bd5 0%, #14a99a 100%);
             color: white;
             border-color: rgba(13, 122, 133, 0.5);
@@ -126,12 +131,12 @@ def run_app() -> None:
         }
 
         /* Distinguish the AGA8 vs REFPROP tab (data-study tab) */
-        [data-testid="stTabs"] [data-baseweb="tab"]:nth-child(11) {
+        [data-testid="stTabs"] [data-baseweb="tab"]:nth-child(9) {
             border-color: rgba(124, 58, 173, 0.32);
             background: rgba(245, 238, 252, 0.95);
             color: #6b2fae;
         }
-        [data-testid="stTabs"] [data-baseweb="tab"]:nth-child(11)[aria-selected="true"] {
+        [data-testid="stTabs"] [data-baseweb="tab"]:nth-child(9)[aria-selected="true"] {
             background: linear-gradient(120deg, #7c3aad 0%, #a465e6 100%);
             color: white;
             border-color: rgba(108, 47, 174, 0.5);
