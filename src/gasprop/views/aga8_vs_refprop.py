@@ -1,5 +1,5 @@
 """
-AGA8 vs REFPROP tab — anonymized metering-station study.
+AGA8 vs REFPROP tab — results from GFMW2026 paper.
 
 Interactive viewer for pre-computed GERG-2008 and DETAIL relative deviations against a
 REFPROP reference across a pressure sweep, for 50 anonymized natural-gas metering stations
@@ -252,8 +252,8 @@ def _c6_plus_mol_pct(station_id: str) -> float:
 
 
 def render(composition: dict | None) -> None:
-    """Render the AGA8 vs REFPROP anonymized station viewer."""
-    st.subheader("AGA8 vs REFPROP — anonymized metering-station study")
+    """Render the AGA8 vs REFPROP viewer."""
+    st.subheader("AGA8 vs REFPROP — results from GFMW2026 paper")
     st.markdown(
         """
 The results in this tab originate from the paper **"Uncertainty in Calculated Gas Properties
@@ -267,10 +267,10 @@ compositions were measured up to **C6+**. For the calculations shown here, the r
 fraction was distributed into **nC6–nC10** using a fixed split: **nC6 50.0%, nC7 30.0%,
 nC8 12.5%, nC9 5.0%, and nC10 2.5%**.
 
-The K-lab gases originate from the gas metering station at the K-lab VGII multiphase flow loop,
+In addition, three K-lab gases are included in the results. The K-lab gases originate from the gas metering station at the K-lab VGII multiphase flow loop,
 as presented in the paper. They typically contain higher C5+ content than most of the
-`gasmet` gases, and are more representative of gases found closer to the wells, for example at
-first-stage and test separators.
+`gasmet` gases, and might be more representative of gases found closer to the wells, for example at
+first-stage and test separators. To include the K-lab gases in the plots, check the **Include K-lab gases** checkbox.
 
 For each composition, AGA8 DETAIL and AGA8 GERG-2008 properties were calculated with `pvtlib` and
 compared against REFPROP reference results obtained through `ctREFPROP`. REFPROP requires a
@@ -285,7 +285,7 @@ REFPROP in percent.
         st.markdown(
             """
 This tab presents pre-computed property comparisons for 50 anonymized gas metering stations
-connected to the Norwegian gas grid and three anonymized K-lab gases. The metering-station
+connected to the Norwegian gas grid and three K-lab gases. The metering-station
 identities have been removed and replaced by neutral identifiers (`gasmet_01`–`gasmet_50`), and
 the selected K-lab gases are identified only as `klab_gas_01`–`klab_gas_03`. The data are made
 available for this study with permission, but no field, station, or sample names are included in
@@ -336,7 +336,7 @@ Relative deviations are shown as:
             value=False,
             key="aga8_refprop_include_klab",
             help=(
-                "Include three anonymized K-lab VGII gases selected to represent low, "
+                "Include three K-lab VGII gases selected to represent low, "
                 "medium, and high DETAIL density deviations."
             ),
         )

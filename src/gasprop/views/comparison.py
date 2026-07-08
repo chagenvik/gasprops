@@ -112,6 +112,35 @@ def render(composition: dict | None) -> None:
         "Results show the relative deviation (%) of DETAIL relative to GERG-2008: "
         "δ = (DETAIL − GERG-2008) / |GERG-2008| × 100 %."
     )
+    st.warning(
+        "This comparison does not account for two-phase behavior. Comparing equations inside "
+        "the two-phase region will give wrong or non-physical results. Use the cricondentherm "
+        "temperature mode to place the comparison temperature above the phase envelope.",
+        icon="⚠️",
+    )
+    with st.expander("Method and temperature handling", expanded=False):
+        st.markdown(
+            """
+The comparison evaluates AGA8 DETAIL and GERG-2008 at the same composition and pressure grid,
+using one fixed temperature for the full pressure sweep. The plotted value is the relative
+deviation of DETAIL from GERG-2008:
+
+`100 × (DETAIL - GERG-2008) / |GERG-2008| [%]`
+
+**Temperature modes**
+
+- **Manual** — use the temperature entered by the user. This is useful when you know the gas is
+  single phase across the selected pressure range.
+- **From cricondentherm** — calculate the cricondentherm with NeqSim and set the comparison
+  temperature to `cricondentherm + safety margin`. This helps keep the pressure sweep outside
+  the two-phase region.
+
+AGA8 DETAIL and GERG-2008 are single-phase gas calculations in this workflow. The app does not
+perform a flash calculation or remove points that enter the two-phase region. If the selected
+temperature intersects the phase envelope, the comparison is not physically meaningful. For
+phase-behavior checks, use the **Phase Envelope** or **Flash Calculation** tabs.
+            """
+        )
 
     if composition is None:
         st.info("Enter a valid composition above to enable the EoS comparison.")
