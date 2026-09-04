@@ -313,8 +313,8 @@ def run_app() -> None:
 
     st.info(
         "**Calculation scope:** Most tabs use AGA8 DETAIL/GERG and are valid for single-phase gas within the AGA8 component set. "
-        "**Flash Calculation** and **Phase Envelope** use NeqSim workflows for phase-behavior analysis, and the "
-        "**DP Flow Meter** and **Flow Converter** tabs at the end cover flow metering.",
+        "**Flash Calculation** and **Phase Envelope** use NeqSim workflows for phase-behavior analysis, and "
+        "**DP Flow Meter** and **Flow Converter** cover flow metering.",
         icon="ℹ️",
     )
 
@@ -324,25 +324,28 @@ def run_app() -> None:
 Computes thermodynamic and transport properties using two calculation engines:
 
 - **AGA8 DETAIL / GERG-2008** for most property workflows (single-phase gas scope)
-- **NeqSim** for phase-behavior workflows (Flash Calculation and Phase Envelope)
+- **NeqSim** for phase-behavior workflows (Flash Calculation and Phase Envelope), and for the
+  gas viscosity used by the DP Flow Meter, which AGA8 does not model
 
 **How to use**
-1. Enter the gas composition in the table to the right (units: mol%).
-2. Use the controls in the left panel to **Set to zero**, **Normalize**, or import via **CSV**.
-   You can also load a previously saved session fluid via *Use saved fluid (session)*.
+1. Enter the gas composition in the **Gas Composition** table (units: mol%).
+   Use **Set to zero**, **Normalize** or **Distribute C6+** below the table to edit it quickly.
+2. Import and export compositions with **Import composition (CSV)** and **Export composition (CSV)**.
+   Turn on **Use example gases** to load a bundled example, or reload a previously stored
+   composition via *Use saved fluid (session)*.
 3. Pick a tab:
    - **Single Calculation** — properties at one P, T.
    - **Multi-Point Calculation** — properties at multiple pressure/temperature points.
-   - **Mix** — blend two AGA8 fluids by mass, mole, volume, or standard volume.
-   - **Property Tables** — sweep over P/T grids; export to CSV/PDF.
+   - **Mix** — blend two AGA8 fluids by mass, mole, volume or standard volume, as a single mix or over a mixing-ratio range.
+   - **Property Tables** — sweep over P/T grids; export to CSV or a multi-page PDF report.
    - **3D plot** — visualise a property over a P/T plane.
    - **Uncertainty Analysis** — propagate composition and P/T uncertainty.
-   - **AGA8 EoS Comparison** — compare AGA8 calculation modes.
-   - **AGA8 Validation** — check composition according to quality ranges in the AGA8 report.
-   - **Flash Calculation** — NeqSim TP flash for single tables or P/T ranges, with gas/liquid outputs.
+   - **AGA8 EoS Comparison** — relative deviation of DETAIL vs GERG-2008 over a pressure range at fixed temperature.
+   - **AGA8 Validation** — check composition against the quality ranges in the AGA8 report.
+   - **Flash Calculation** — NeqSim TP flash for single points or P/T ranges, with gas/liquid/aqueous outputs.
    - **Phase Envelope** — phase-boundary analysis with NeqSim.
    - **AGA8 vs REFPROP** — browse pre-computed GERG-2008/DETAIL deviations vs a REFPROP reference for anonymized metering-station and K-lab gases, filterable by AGA8 quality range.
-   - **DP Flow Meter** — flow rate through Venturi, orifice and V-cone DP meters (ISO 5167) using AGA8 gas properties.
+   - **DP Flow Meter** — flow rate through Venturi, orifice and V-cone DP meters (ISO 5167) using AGA8 gas properties, with single-point, multi-point and Δp-sizing workflows.
    - **Flow Converter** — convert between mass flow, actual volume flow and standard volume flow at any P/T and time basis.
 4. The composition you enter is shared across all tabs.
 
@@ -353,8 +356,8 @@ Heavy fractions are the defined normal-alkanes nC6–nC10 (no pseudo C6+ compone
 **Saved fluids**
 Use *💾 Temporary save fluid* to keep a composition in memory for the current browser session,
 and *Use saved fluid (session)* to reload it later. The library is cleared on tab close, refresh,
-or app restart, with a cap of 20 fluids per session. The **Mix** tab can use current composition,
-example gases, and session-saved AGA8 fluids.
+or app restart, with a cap of 20 fluids per session. The **Mix** tab can use the current composition,
+the bundled example gases, and session-saved AGA8 fluids.
 
 **Things to be aware of**
 - AGA8 properties assume **single-phase gas**. Always sanity-check your point against the phase envelope before reading out densities/viscosities.
