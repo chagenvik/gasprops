@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 400" width="720" height="400" role="img"
-     aria-label="Orifice plate diagram showing pipe diameter D, orifice bore d and the differential pressure taps p1 and p2.">
+     aria-label="Orifice plate diagram showing the pipe inner diameter D, orifice bore d and the differential pressure taps p1 and p2.">
   <defs>
-    <marker id="dimEnd" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
-      <path d="M0,0 L9,4.5 L0,9 z" fill="#0f8bd5"/>
+    <marker id="dimEnd" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="9" refX="9.5" refY="4.5" orient="auto">
+      <path d="M0,0 L10,4.5 L0,9 z" fill="#0f8bd5"/>
     </marker>
-    <marker id="dimStart" markerWidth="9" markerHeight="9" refX="1" refY="4.5" orient="auto">
-      <path d="M9,0 L0,4.5 L9,9 z" fill="#0f8bd5"/>
+    <marker id="dimStart" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="9" refX="0.5" refY="4.5" orient="auto">
+      <path d="M10,0 L0,4.5 L10,9 z" fill="#0f8bd5"/>
     </marker>
     <marker id="flowEnd" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="12" refX="13" refY="6" orient="auto">
       <path d="M0,0 L14,6 L0,12 z" fill="#0f8bd5"/>
@@ -20,45 +20,48 @@
     .note  { font-family: "Segoe UI", Arial, sans-serif; font-size: 14px; fill: #194f73; }
     .form  { font-family: "Segoe UI", Arial, sans-serif; font-size: 15px; font-weight: 700; fill: #0f8bd5; }
     .dim   { stroke: #0f8bd5; stroke-width: 1.6; fill: none; }
+    .ext   { stroke: #0f8bd5; stroke-width: 0.9; stroke-dasharray: 4 3; fill: none; }
     .tapln { stroke: #19567d; stroke-width: 2; fill: none; }
-    .wall  { stroke: #4a6b80; stroke-width: 9; fill: none; stroke-linecap: round; }
-    .metal { fill: #9fb6c4; stroke: #3d5a6b; stroke-width: 2; }
+    .wall  { fill: #4a6b80; stroke: #33505f; stroke-width: 1; }
+    .plate { fill: #9fb6c4; stroke: #33505f; stroke-width: 1.4; }
   </style>
 
   <rect x="0" y="0" width="720" height="400" fill="#ffffff"/>
   <text class="title" x="360" y="24" text-anchor="middle">Orifice plate — ISO 5167-2</text>
 
-  <!-- gas volume inside the pipe -->
+  <!-- Gas volume, bounded exactly by the inner wall surfaces at y=135 and y=245 -->
   <rect x="60" y="135" width="600" height="110" fill="#dff1ff"/>
 
-  <!-- pipe walls -->
-  <line class="wall" x1="60" y1="135" x2="660" y2="135"/>
-  <line class="wall" x1="60" y1="245" x2="660" y2="245"/>
+  <!-- Pipe wall as a filled body: inner surface y=135 / y=245, outer y=126 / y=254 -->
+  <rect class="wall" x="60" y="126" width="600" height="9"/>
+  <rect class="wall" x="60" y="245" width="600" height="9"/>
 
-  <!-- orifice plate (upper and lower segment, bore in between) -->
-  <rect class="metal" x="349" y="121" width="14" height="36"/>
-  <rect class="metal" x="349" y="223" width="14" height="36"/>
+  <!-- Orifice plate: clamped in the wall, bore between y=157 and y=223 -->
+  <rect class="plate" x="349" y="126" width="14" height="31"/>
+  <rect class="plate" x="349" y="223" width="14" height="31"/>
 
   <!-- flow direction -->
   <line x1="14" y1="190" x2="46" y2="190" stroke="#0f8bd5" stroke-width="4" marker-end="url(#flowEnd)"/>
-  <text class="tap" x="31" y="176" text-anchor="middle">Flow</text>
+  <text class="tap" x="30" y="176" text-anchor="middle">Flow</text>
 
-  <!-- pipe diameter D -->
-  <line class="dim" x1="150" y1="135" x2="150" y2="245" marker-start="url(#dimStart)" marker-end="url(#dimEnd)"/>
-  <text class="lbl" x="138" y="196" text-anchor="end">D</text>
+  <!-- Pipe inner diameter D: arrowheads land on the inner wall surfaces, not the wall centre -->
+  <line class="dim" x1="160" y1="135" x2="160" y2="245" marker-start="url(#dimStart)" marker-end="url(#dimEnd)"/>
+  <text class="lbl" x="148" y="196" text-anchor="end">D</text>
 
-  <!-- orifice bore d -->
-  <line class="dim" x1="356" y1="157" x2="356" y2="223" marker-start="url(#dimStart)" marker-end="url(#dimEnd)"/>
-  <text class="lbl" x="370" y="196" text-anchor="start">d</text>
+  <!-- Orifice bore diameter d, measured between the plate edges -->
+  <line class="ext" x1="363" y1="157" x2="404" y2="157"/>
+  <line class="ext" x1="363" y1="223" x2="404" y2="223"/>
+  <line class="dim" x1="398" y1="157" x2="398" y2="223" marker-start="url(#dimStart)" marker-end="url(#dimEnd)"/>
+  <text class="lbl" x="410" y="196" text-anchor="start">d</text>
 
-  <!-- pressure tappings and dP transmitter -->
-  <line class="tapln" x1="290" y1="139" x2="290" y2="70"/>
-  <line class="tapln" x1="420" y1="139" x2="420" y2="70"/>
-  <line class="tapln" x1="290" y1="70" x2="420" y2="70"/>
-  <circle cx="355" cy="70" r="24" fill="#ffffff" stroke="#0f8bd5" stroke-width="2.5"/>
-  <text class="lbl" x="355" y="76" text-anchor="middle">Δp</text>
-  <text class="tap" x="282" y="118" text-anchor="end">p₁, T₁</text>
-  <text class="tap" x="429" y="118" text-anchor="start">p₂</text>
+  <!-- pressure tappings and dP transmitter; tap lines start at the inner surface -->
+  <line class="tapln" x1="300" y1="135" x2="300" y2="70"/>
+  <line class="tapln" x1="440" y1="135" x2="440" y2="70"/>
+  <line class="tapln" x1="300" y1="70" x2="440" y2="70"/>
+  <circle cx="370" cy="70" r="24" fill="#ffffff" stroke="#0f8bd5" stroke-width="2.5"/>
+  <text class="lbl" x="370" y="76" text-anchor="middle">Δp</text>
+  <text class="tap" x="292" y="112" text-anchor="end">p₁, T₁</text>
+  <text class="tap" x="449" y="112" text-anchor="start">p₂</text>
 
   <text class="tap" x="60" y="286" text-anchor="start">Tapping type: corner / flange / D and D/2</text>
   <text class="form" x="660" y="286" text-anchor="end">β = d / D</text>

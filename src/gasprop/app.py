@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import streamlit as st
@@ -10,6 +11,7 @@ from .views import (
     comparison,
     dp_flow,
     flash,
+    flow_converter,
     mix,
     multi,
     phase,
@@ -30,12 +32,13 @@ VIEW_MAP = {
     "Property Tables": tables.render,
     "3D plot": surface.render,
     "Uncertainty Analysis": uncertainty.render,
-    "DP Flow Meter": dp_flow.render,
     "AGA8 EoS Comparison": comparison.render,
     "AGA8 Validation": validation.render,
     "AGA8 vs REFPROP": aga8_vs_refprop.render,
     "Flash Calculation": flash.render,
     "Phase Envelope": phase.render,
+    "DP Flow Meter": dp_flow.render,
+    "Flow Converter": flow_converter.render,
 }
 
 #: Tabs backed by NeqSim rather than AGA8; visually highlighted in the tab bar.
@@ -43,6 +46,17 @@ NEQSIM_TAB_LABELS = ("Flash Calculation", "Phase Envelope")
 
 #: Tabs presenting a pre-computed data study; visually highlighted in the tab bar.
 DATA_STUDY_TAB_LABELS = ("AGA8 vs REFPROP",)
+
+#: Flow-metering tabs; these answer "how much is flowing" rather than "what are the
+#: gas properties", so they get their own highlight colour in the tab bar.
+METERING_TAB_LABELS = ("DP Flow Meter", "Flow Converter")
+
+#: CSS placeholder token -> the tab group it should be expanded to.
+TAB_HIGHLIGHT_GROUPS: dict[str, tuple[str, ...]] = {
+    "NEQSIM_TABS": NEQSIM_TAB_LABELS,
+    "DATA_STUDY_TABS": DATA_STUDY_TAB_LABELS,
+    "METERING_TABS": METERING_TAB_LABELS,
+}
 
 
 def tab_nth_child_selector(labels: tuple[str, ...], suffix: str = "") -> str:
@@ -61,6 +75,24 @@ def tab_nth_child_selector(labels: tuple[str, ...], suffix: str = "") -> str:
     return ",\n        ".join(selectors)
 
 
+def _apply_tab_highlight_selectors(css: str) -> str:
+    """Expand every ``__<GROUP>__`` / ``__<GROUP>_SELECTED__`` token in the stylesheet.
+
+    Raises if a placeholder token survives, so a renamed or misspelled group fails loudly
+    instead of leaking a literal ``__FOO__`` into the rendered CSS.
+    """
+    for token, labels in TAB_HIGHLIGHT_GROUPS.items():
+        css = css.replace(
+            f"__{token}_SELECTED__", tab_nth_child_selector(labels, '[aria-selected="true"]')
+        )
+        css = css.replace(f"__{token}__", tab_nth_child_selector(labels))
+
+    leftover = re.findall(r"__[A-Z_]+__", css)
+    if leftover:
+        raise ValueError(f"Unresolved tab highlight placeholders in stylesheet: {sorted(set(leftover))}")
+    return css
+
+
 def _render_terms_notice() -> None:
     """Render a non-blocking terms notice with links."""
     st.caption(
@@ -74,7 +106,8 @@ def run_app() -> None:
     """Render the main GasProps app layout and tabs."""
     st.set_page_config(page_title="GasProps", page_icon="🧪", layout="wide")
     st.markdown(
-        """
+        _apply_tab_highlight_selectors(
+            """
         <style>
         :root {
             /* Prevent Safari from auto-darkening native controls on dark-mode devices. */
@@ -165,6 +198,19 @@ def run_app() -> None:
             box-shadow: 0 8px 18px rgba(108, 47, 174, 0.25);
         }
 
+        /* Distinguish the flow-metering tabs (DP Flow Meter + Flow Conversion) */
+        __METERING_TABS__ {
+            border-color: rgba(191, 106, 20, 0.32);
+            background: rgba(255, 244, 230, 0.95);
+            color: #a45a10;
+        }
+        __METERING_TABS_SELECTED__ {
+            background: linear-gradient(120deg, #d97b12 0%, #f5a742 100%);
+            color: white;
+            border-color: rgba(176, 96, 16, 0.5);
+            box-shadow: 0 8px 18px rgba(176, 96, 16, 0.25);
+        }
+
         .stButton > button {
             border: 0;
             border-radius: 12px;
@@ -234,13 +280,8 @@ def run_app() -> None:
             }
         }
         </style>
-        """.replace("__NEQSIM_TABS_SELECTED__", tab_nth_child_selector(NEQSIM_TAB_LABELS, '[aria-selected="true"]'))
-        .replace("__NEQSIM_TABS__", tab_nth_child_selector(NEQSIM_TAB_LABELS))
-        .replace(
-            "__DATA_STUDY_TABS_SELECTED__",
-            tab_nth_child_selector(DATA_STUDY_TAB_LABELS, '[aria-selected="true"]'),
-        )
-        .replace("__DATA_STUDY_TABS__", tab_nth_child_selector(DATA_STUDY_TAB_LABELS)),
+        """
+        ),
         unsafe_allow_html=True,
     )
     if LOGO_PATH.exists():
@@ -253,7 +294,8 @@ def run_app() -> None:
     )
     st.markdown(
         "The **Flash Calculation** and **Phase Envelope** tabs are using **NeqSim**, which supports multiple phases through various EoS. "
-        "These tabs are visually highlighted to distinguish them from the AGA8-based tabs."
+        "The **DP Flow Meter** and **Flow Converter** tabs cover flow metering rather than gas properties. "
+        "Both groups are colour-coded in the tab bar to distinguish them from the AGA8 property tabs."
     )
     st.markdown(
         "Developed by **Equinor K-lab**, by Christian Hågenvik. This application is built on open-source libraries: "
@@ -271,7 +313,8 @@ def run_app() -> None:
 
     st.info(
         "**Calculation scope:** Most tabs use AGA8 DETAIL/GERG and are valid for single-phase gas within the AGA8 component set. "
-        "The tabs on the right (**Flash Calculation** and **Phase Envelope**) use NeqSim workflows for phase-behavior analysis.",
+        "**Flash Calculation** and **Phase Envelope** use NeqSim workflows for phase-behavior analysis, and the "
+        "**DP Flow Meter** and **Flow Converter** tabs at the end cover flow metering.",
         icon="ℹ️",
     )
 
@@ -294,12 +337,13 @@ Computes thermodynamic and transport properties using two calculation engines:
    - **Property Tables** — sweep over P/T grids; export to CSV/PDF.
    - **3D plot** — visualise a property over a P/T plane.
    - **Uncertainty Analysis** — propagate composition and P/T uncertainty.
-   - **DP Flow Meter** — flow rate through Venturi, orifice and V-cone DP meters (ISO 5167) using AGA8 gas properties.
    - **AGA8 EoS Comparison** — compare AGA8 calculation modes.
    - **AGA8 Validation** — check composition according to quality ranges in the AGA8 report.
    - **Flash Calculation** — NeqSim TP flash for single tables or P/T ranges, with gas/liquid outputs.
    - **Phase Envelope** — phase-boundary analysis with NeqSim.
    - **AGA8 vs REFPROP** — browse pre-computed GERG-2008/DETAIL deviations vs a REFPROP reference for anonymized metering-station and K-lab gases, filterable by AGA8 quality range.
+   - **DP Flow Meter** — flow rate through Venturi, orifice and V-cone DP meters (ISO 5167) using AGA8 gas properties.
+   - **Flow Converter** — convert between mass flow, actual volume flow and standard volume flow at any P/T and time basis.
 4. The composition you enter is shared across all tabs.
 
 **Composition format (AGA8)**

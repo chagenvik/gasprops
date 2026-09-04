@@ -22,7 +22,7 @@ streamlit run streamlit_app.py
 
 ## Calculation Scope
 
-- **AGA8 DETAIL / GERG-2008 (primary engine):** Used for most property workflows (single-point, multi-point, tables, surfaces, uncertainty, DP flow metering, comparison, validation, and mixing). These calculations are intended for **single-phase gas**.
+- **AGA8 DETAIL / GERG-2008 (primary engine):** Used for most property workflows (single-point, multi-point, tables, surfaces, uncertainty, flow metering, comparison, validation, and mixing). These calculations are intended for **single-phase gas**.
 - **NeqSim workflows:** Used in **Flash Calculation** and **Phase Envelope** tabs for phase-behavior analysis, and to supply the gas viscosity in the **DP Flow Meter** tab (AGA8 does not model viscosity).
 - **Composition constraint:** The app input is constrained to the **21-component AGA8 component set**.
 
@@ -30,16 +30,20 @@ streamlit run streamlit_app.py
 
 - Single Calculation
 - Multi-Point Calculation
-- Flash Calculation
-- Phase Envelope
 - Mix
 - Property Tables
 - 3D plot
 - Uncertainty Analysis
-- DP Flow Meter
 - AGA8 EoS Comparison
 - AGA8 Validation
 - AGA8 vs REFPROP
+- Flash Calculation
+- Phase Envelope
+- DP Flow Meter
+- Flow Converter
+
+The two flow-metering tabs sit at the end of the tab bar and are colour-coded separately from the
+AGA8 gas-property tabs and the NeqSim phase-behaviour tabs.
 
 ## DP Flow Meter
 
@@ -73,6 +77,37 @@ result = calculate_dp_flow_from_composition(
     temperature=20.0,
 )
 print(result.std_volume_flow_sm3_h)
+```
+
+## Flow Converter
+
+Converts a single flow rate between **mass flow**, **actual (line-condition) volume flow** and
+**standard volume flow**, using AGA8 densities at the line conditions and at the reference state:
+
+```text
+actual volume flow   = mass flow / rho(P, T)
+standard volume flow = mass flow / rho(P_std, T_std)
+```
+
+Standard conditions default to 1.01325 bara / 15 °C (ISO 13443, Sm³) with presets for normal
+conditions (Nm³, 0 °C) and US standard conditions (60 °F), plus a fully custom option. Results are
+reported per second, per hour and per day; mass flow can be entered in kg or tonnes.
+
+The engine lives in `src/gasprop/flow_converter.py` and is free of Streamlit:
+
+```python
+from gasprop.flow_converter import StandardConditions, convert_flow
+
+result = convert_flow(
+    {"C1": 90.0, "C2": 5.0, "C3": 2.0, "N2": 1.5, "CO2": 1.5},
+    100_000.0,
+    "mass",
+    pressure=60.0,
+    temperature=20.0,
+    time_unit="h",
+    standard_conditions=StandardConditions(1.01325, 15.0),
+)
+mass_per_day, actual_per_day, standard_per_day = result.in_time_unit("d")
 ```
 
 ## Repository structure
