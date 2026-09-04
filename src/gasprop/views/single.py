@@ -8,6 +8,11 @@ import pvtlib
 import streamlit as st
 
 from ..composition_input import COMPONENTS as MAIN_TAB_COMPONENTS
+from ..operating_conditions import (
+    aga8_equation_input,
+    pressure_input,
+    temperature_input,
+)
 
 # ── Property catalogue ─────────────────────────────────────────────────────────
 PROPERTIES = {
@@ -47,32 +52,13 @@ def render(composition: dict | None):
 
     # ── Inputs ────────────────────────────────────────────────────────────────
     st.markdown("#### Operating Conditions")
-    c1, c2 = st.columns(2)
-    pressure_unit = c1.selectbox("Pressure unit", ["bara", "barg", "kPa", "MPa"], index=0, key="single_p_unit")
-    pressure = c2.number_input(
-        f"Pressure [{pressure_unit}]",
-        min_value=0.0, max_value=1000.0, value=100.0, step=0.1, format="%.3f",
-        key="single_pressure",
+    pressure, pressure_unit = pressure_input(
+        value_key="single_pressure", unit_key="single_p_unit",
     )
-
-    c3, c4 = st.columns(2)
-    equation = c3.selectbox(
-        "AGA8 equation", ["GERG-2008", "DETAIL"], index=0, key="single_eos",
-        help="GERG-2008 is recommended for natural gas mixtures.",
+    temperature, temperature_unit, temp_label = temperature_input(
+        value_key="single_temperature", unit_key="single_t_unit",
     )
-    temperature_unit = c4.selectbox(
-        "Temperature unit", ["C", "K"], index=0, key="single_t_unit",
-        format_func=lambda x: "°C" if x == "C" else "K",
-    )
-    temp_label = "°C" if temperature_unit == "C" else "K"
-    t_floor = -273.15 if temperature_unit == "C" else 0.0
-
-    c5, c6 = st.columns(2)
-    temperature = c5.number_input(
-        f"Temperature [{temp_label}]",
-        min_value=t_floor, max_value=2000.0, value=60.0, step=0.5, format="%.2f",
-        key="single_temperature",
-    )
+    equation = aga8_equation_input(key="single_eos")
 
     calculate = st.button("Calculate", type="primary", key="single_calc_btn")
 

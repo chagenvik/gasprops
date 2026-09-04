@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import streamlit as st
@@ -8,7 +9,9 @@ from .composition_input import composition_input, composition_io_controls
 from .views import (
     aga8_vs_refprop,
     comparison,
+    dp_flow,
     flash,
+    flow_converter,
     mix,
     multi,
     phase,
@@ -34,7 +37,60 @@ VIEW_MAP = {
     "AGA8 vs REFPROP": aga8_vs_refprop.render,
     "Flash Calculation": flash.render,
     "Phase Envelope": phase.render,
+    "DP Flow Meter": dp_flow.render,
+    "Flow Converter": flow_converter.render,
 }
+
+#: Tabs backed by NeqSim rather than AGA8; visually highlighted in the tab bar.
+NEQSIM_TAB_LABELS = ("Flash Calculation", "Phase Envelope")
+
+#: Tabs presenting a pre-computed data study; visually highlighted in the tab bar.
+DATA_STUDY_TAB_LABELS = ("AGA8 vs REFPROP",)
+
+#: Flow-metering tabs; these answer "how much is flowing" rather than "what are the
+#: gas properties", so they get their own highlight colour in the tab bar.
+METERING_TAB_LABELS = ("DP Flow Meter", "Flow Converter")
+
+#: CSS placeholder token -> the tab group it should be expanded to.
+TAB_HIGHLIGHT_GROUPS: dict[str, tuple[str, ...]] = {
+    "NEQSIM_TABS": NEQSIM_TAB_LABELS,
+    "DATA_STUDY_TABS": DATA_STUDY_TAB_LABELS,
+    "METERING_TABS": METERING_TAB_LABELS,
+}
+
+
+def tab_nth_child_selector(labels: tuple[str, ...], suffix: str = "") -> str:
+    """Build a CSS selector list targeting the given tabs by their position in VIEW_MAP.
+
+    Streamlit renders tabs in ``VIEW_MAP`` order, so the highlight styling is derived
+    from that order instead of hard-coded indices that silently break when a tab is
+    added or reordered.
+    """
+    order = list(VIEW_MAP.keys())
+    selectors = [
+        f'[data-testid="stTabs"] [data-baseweb="tab"]:nth-child({order.index(label) + 1}){suffix}'
+        for label in labels
+        if label in order
+    ]
+    return ",\n        ".join(selectors)
+
+
+def _apply_tab_highlight_selectors(css: str) -> str:
+    """Expand every ``__<GROUP>__`` / ``__<GROUP>_SELECTED__`` token in the stylesheet.
+
+    Raises if a placeholder token survives, so a renamed or misspelled group fails loudly
+    instead of leaking a literal ``__FOO__`` into the rendered CSS.
+    """
+    for token, labels in TAB_HIGHLIGHT_GROUPS.items():
+        css = css.replace(
+            f"__{token}_SELECTED__", tab_nth_child_selector(labels, '[aria-selected="true"]')
+        )
+        css = css.replace(f"__{token}__", tab_nth_child_selector(labels))
+
+    leftover = re.findall(r"__[A-Z_]+__", css)
+    if leftover:
+        raise ValueError(f"Unresolved tab highlight placeholders in stylesheet: {sorted(set(leftover))}")
+    return css
 
 
 def _render_terms_notice() -> None:
@@ -50,7 +106,8 @@ def run_app() -> None:
     """Render the main GasProps app layout and tabs."""
     st.set_page_config(page_title="GasProps", page_icon="🧪", layout="wide")
     st.markdown(
-        """
+        _apply_tab_highlight_selectors(
+            """
         <style>
         :root {
             /* Prevent Safari from auto-darkening native controls on dark-mode devices. */
@@ -116,14 +173,12 @@ def run_app() -> None:
         }
 
         /* Highlight NeqSim-backed tabs (Flash + Phase Envelope) */
-        [data-testid="stTabs"] [data-baseweb="tab"]:nth-child(10),
-        [data-testid="stTabs"] [data-baseweb="tab"]:nth-child(11) {
+        __NEQSIM_TABS__ {
             border-color: rgba(15, 126, 140, 0.3);
             background: rgba(234, 249, 250, 0.95);
             color: #0f6773;
         }
-        [data-testid="stTabs"] [data-baseweb="tab"]:nth-child(10)[aria-selected="true"],
-        [data-testid="stTabs"] [data-baseweb="tab"]:nth-child(11)[aria-selected="true"] {
+        __NEQSIM_TABS_SELECTED__ {
             background: linear-gradient(120deg, #0f8bd5 0%, #14a99a 100%);
             color: white;
             border-color: rgba(13, 122, 133, 0.5);
@@ -131,16 +186,29 @@ def run_app() -> None:
         }
 
         /* Distinguish the AGA8 vs REFPROP tab (data-study tab) */
-        [data-testid="stTabs"] [data-baseweb="tab"]:nth-child(9) {
+        __DATA_STUDY_TABS__ {
             border-color: rgba(124, 58, 173, 0.32);
             background: rgba(245, 238, 252, 0.95);
             color: #6b2fae;
         }
-        [data-testid="stTabs"] [data-baseweb="tab"]:nth-child(9)[aria-selected="true"] {
+        __DATA_STUDY_TABS_SELECTED__ {
             background: linear-gradient(120deg, #7c3aad 0%, #a465e6 100%);
             color: white;
             border-color: rgba(108, 47, 174, 0.5);
             box-shadow: 0 8px 18px rgba(108, 47, 174, 0.25);
+        }
+
+        /* Distinguish the flow-metering tabs (DP Flow Meter + Flow Conversion) */
+        __METERING_TABS__ {
+            border-color: rgba(191, 106, 20, 0.32);
+            background: rgba(255, 244, 230, 0.95);
+            color: #a45a10;
+        }
+        __METERING_TABS_SELECTED__ {
+            background: linear-gradient(120deg, #d97b12 0%, #f5a742 100%);
+            color: white;
+            border-color: rgba(176, 96, 16, 0.5);
+            box-shadow: 0 8px 18px rgba(176, 96, 16, 0.25);
         }
 
         .stButton > button {
@@ -212,7 +280,8 @@ def run_app() -> None:
             }
         }
         </style>
-        """,
+        """
+        ),
         unsafe_allow_html=True,
     )
     if LOGO_PATH.exists():
@@ -225,7 +294,8 @@ def run_app() -> None:
     )
     st.markdown(
         "The **Flash Calculation** and **Phase Envelope** tabs are using **NeqSim**, which supports multiple phases through various EoS. "
-        "These tabs are visually highlighted to distinguish them from the AGA8-based tabs."
+        "The **DP Flow Meter** and **Flow Converter** tabs cover flow metering rather than gas properties. "
+        "Both groups are colour-coded in the tab bar to distinguish them from the AGA8 property tabs."
     )
     st.markdown(
         "Developed by **Equinor K-lab**, by Christian Hågenvik. This application is built on open-source libraries: "
@@ -243,7 +313,8 @@ def run_app() -> None:
 
     st.info(
         "**Calculation scope:** Most tabs use AGA8 DETAIL/GERG and are valid for single-phase gas within the AGA8 component set. "
-        "The tabs on the right (**Flash Calculation** and **Phase Envelope**) use NeqSim workflows for phase-behavior analysis.",
+        "**Flash Calculation** and **Phase Envelope** use NeqSim workflows for phase-behavior analysis, and "
+        "**DP Flow Meter** and **Flow Converter** cover flow metering.",
         icon="ℹ️",
     )
 
@@ -253,24 +324,29 @@ def run_app() -> None:
 Computes thermodynamic and transport properties using two calculation engines:
 
 - **AGA8 DETAIL / GERG-2008** for most property workflows (single-phase gas scope)
-- **NeqSim** for phase-behavior workflows (Flash Calculation and Phase Envelope)
+- **NeqSim** for phase-behavior workflows (Flash Calculation and Phase Envelope), and for the
+  gas viscosity used by the DP Flow Meter, which AGA8 does not model
 
 **How to use**
-1. Enter the gas composition in the table to the right (units: mol%).
-2. Use the controls in the left panel to **Set to zero**, **Normalize**, or import via **CSV**.
-   You can also load a previously saved session fluid via *Use saved fluid (session)*.
+1. Enter the gas composition in the **Gas Composition** table (units: mol%).
+   Use **Set to zero**, **Normalize** or **Distribute C6+** below the table to edit it quickly.
+2. Import and export compositions with **Import composition (CSV)** and **Export composition (CSV)**.
+   Turn on **Use example gases** to load a bundled example, or reload a previously stored
+   composition via *Use saved fluid (session)*.
 3. Pick a tab:
    - **Single Calculation** — properties at one P, T.
    - **Multi-Point Calculation** — properties at multiple pressure/temperature points.
-   - **Mix** — blend two AGA8 fluids by mass, mole, volume, or standard volume.
-   - **Property Tables** — sweep over P/T grids; export to CSV/PDF.
+   - **Mix** — blend two AGA8 fluids by mass, mole, volume or standard volume, as a single mix or over a mixing-ratio range.
+   - **Property Tables** — sweep over P/T grids; export to CSV or a multi-page PDF report.
    - **3D plot** — visualise a property over a P/T plane.
    - **Uncertainty Analysis** — propagate composition and P/T uncertainty.
-   - **AGA8 EoS Comparison** — compare AGA8 calculation modes.
-   - **AGA8 Validation** — check composition according to quality ranges in the AGA8 report.
-   - **Flash Calculation** — NeqSim TP flash for single tables or P/T ranges, with gas/liquid outputs.
+   - **AGA8 EoS Comparison** — relative deviation of DETAIL vs GERG-2008 over a pressure range at fixed temperature.
+   - **AGA8 Validation** — check composition against the quality ranges in the AGA8 report.
+   - **Flash Calculation** — NeqSim TP flash for single points or P/T ranges, with gas/liquid/aqueous outputs.
    - **Phase Envelope** — phase-boundary analysis with NeqSim.
    - **AGA8 vs REFPROP** — browse pre-computed GERG-2008/DETAIL deviations vs a REFPROP reference for anonymized metering-station and K-lab gases, filterable by AGA8 quality range.
+   - **DP Flow Meter** — flow rate through Venturi, orifice and V-cone DP meters (ISO 5167) using AGA8 gas properties, with single-point, multi-point and Δp-sizing workflows.
+   - **Flow Converter** — convert between mass flow, actual volume flow and standard volume flow at any P/T and time basis.
 4. The composition you enter is shared across all tabs.
 
 **Composition format (AGA8)**
@@ -280,8 +356,8 @@ Heavy fractions are the defined normal-alkanes nC6–nC10 (no pseudo C6+ compone
 **Saved fluids**
 Use *💾 Temporary save fluid* to keep a composition in memory for the current browser session,
 and *Use saved fluid (session)* to reload it later. The library is cleared on tab close, refresh,
-or app restart, with a cap of 20 fluids per session. The **Mix** tab can use current composition,
-example gases, and session-saved AGA8 fluids.
+or app restart, with a cap of 20 fluids per session. The **Mix** tab can use the current composition,
+the bundled example gases, and session-saved AGA8 fluids.
 
 **Things to be aware of**
 - AGA8 properties assume **single-phase gas**. Always sanity-check your point against the phase envelope before reading out densities/viscosities.
