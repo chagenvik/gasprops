@@ -1,5 +1,6 @@
-from pathlib import Path
+from dataclasses import replace
 import math
+from pathlib import Path
 import sys
 
 import pytest
@@ -166,6 +167,39 @@ def test_gas_state_rejects_empty_composition():
         dp_flow.calculate_gas_state({"C1": 0.0}, 60.0, 20.0, viscosity_pa_s=1.2e-5)
 
 
+def test_gas_state_rejects_unknown_negative_and_nonfinite_composition_values():
+    invalid_compositions = (
+        {"methane": 100.0},
+        {"C1": -1.0},
+        {"C1": math.nan},
+        {"C1": math.inf},
+    )
+
+    for composition in invalid_compositions:
+        with pytest.raises(dp_flow.DPFlowError):
+            dp_flow.calculate_gas_state(
+                composition, 60.0, 20.0, viscosity_pa_s=1.2e-5
+            )
+
+
+def test_gas_state_rejects_nonfinite_pressure_and_temperature():
+    with pytest.raises(dp_flow.DPFlowError, match="pressure"):
+        dp_flow.calculate_gas_state(
+            NATURAL_GAS, math.inf, 20.0, viscosity_pa_s=1.2e-5
+        )
+    with pytest.raises(dp_flow.DPFlowError, match="Temperature"):
+        dp_flow.calculate_gas_state(
+            NATURAL_GAS, 60.0, math.nan, viscosity_pa_s=1.2e-5
+        )
+
+
+def test_aga8_instances_are_not_shared_between_calculations():
+    first = dp_flow._aga8("GERG-2008")
+    second = dp_flow._aga8("GERG-2008")
+
+    assert first is not second
+
+
 def test_viscosity_from_neqsim_returns_none_for_empty_composition():
     assert dp_flow.viscosity_from_neqsim({"C1": 0.0}, 60.0, 20.0) is None
 
@@ -204,6 +238,12 @@ def test_venturi_flow_matches_pvtlib_reference():
     assert result.expansibility == pytest.approx(epsilon)
 
 
+def test_venturi_mass_flow_matches_independent_reference_case():
+    result = dp_flow.calculate_dp_flow(VENTURI, _gas_state(), 500.0)
+
+    assert result.mass_flow_kg_h == pytest.approx(97257.851470624, rel=1e-10)
+
+
 def test_venturi_uses_iso_default_discharge_coefficient():
     result = dp_flow.calculate_dp_flow(VENTURI, _gas_state(), 500.0)
     assert result.discharge_coefficient == pytest.approx(dp_flow.DEFAULT_C_VENTURI)
@@ -217,6 +257,7 @@ def test_venturi_manual_discharge_coefficient_scales_mass_flow_linearly():
 
     assert calibrated.discharge_coefficient_source == "Manual"
     assert calibrated.mass_flow_kg_h == pytest.approx(default.mass_flow_kg_h * 0.995 / 0.984)
+    assert any("as-cast construction range" in warning for warning in calibrated.warnings)
 
 
 def test_mass_flow_scales_with_square_root_of_dp_at_fixed_coefficients():
@@ -240,6 +281,43 @@ def test_zero_dp_gives_zero_flow_and_unity_expansibility():
     assert result.pressure_ratio == pytest.approx(1.0)
 
 
+def test_negligible_dp_does_not_break_the_venturi_expansibility():
+    # Regression guard: the ISO 5167-4 Venturi expansibility formula divides by (1 - tau)
+    # and suffers catastrophic cancellation as tau -> 1. Raw pvtlib returns values above 1
+    # around dP/p1 ~ 1e-11 and raises ZeroDivisionError once tau rounds to exactly 1, which
+    # then tripped the "expansibility must be at most one" validation.
+    state = _gas_state()
+    for dp_mbar in (1e-12, 1e-9, 1e-6, 1e-3):
+        result = dp_flow.calculate_dp_flow(VENTURI, state, dp_mbar)
+        assert 0.999 < result.expansibility <= 1.0
+
+
+def test_negligible_dp_expansibility_is_exactly_one_below_the_threshold():
+    state = _gas_state()
+    below = state.pressure_bara * 1000.0 * dp_flow.NEGLIGIBLE_PRESSURE_DROP_RATIO * 0.5
+
+    assert dp_flow.calculate_expansibility(VENTURI, state.pressure_bara, below, state.kappa) == 1.0
+    assert dp_flow.calculate_expansibility(ORIFICE, state.pressure_bara, below, state.kappa) == 1.0
+    assert dp_flow.calculate_expansibility(V_CONE, state.pressure_bara, below, state.kappa) == 1.0
+
+
+def test_expansibility_stays_at_or_below_one_across_the_valid_dp_range():
+    state = _gas_state()
+    dp_ceiling = state.pressure_bara * 1000.0 * (1.0 - dp_flow.MIN_PRESSURE_RATIO)
+
+    for geometry in (VENTURI, ORIFICE, V_CONE):
+        for fraction in (1e-9, 1e-6, 1e-3, 0.01, 0.1, 0.5, 1.0):
+            epsilon = dp_flow.calculate_expansibility(
+                geometry, state.pressure_bara, dp_ceiling * fraction, state.kappa
+            )
+            assert 0.0 < epsilon <= 1.0
+
+
+def test_expansibility_rejects_non_positive_pressure():
+    with pytest.raises(dp_flow.DPFlowError, match="Upstream pressure"):
+        dp_flow.calculate_expansibility(VENTURI, 0.0, 100.0, 1.3)
+
+
 # ── Orifice ───────────────────────────────────────────────────────────────────
 def test_orifice_flow_matches_pvtlib_reference_with_iterated_coefficient():
     state = _gas_state()
@@ -257,6 +335,12 @@ def test_orifice_flow_matches_pvtlib_reference_with_iterated_coefficient():
     assert result.discharge_coefficient == pytest.approx(reference["C"])
     assert result.reynolds_number == pytest.approx(reference["Re"])
     assert result.discharge_coefficient_source == "Reader-Harris/Gallagher (corner tappings)"
+
+
+def test_orifice_mass_flow_matches_independent_reference_case():
+    result = dp_flow.calculate_dp_flow(ORIFICE, _gas_state(), 500.0)
+
+    assert result.mass_flow_kg_h == pytest.approx(59843.849056964, rel=1e-10)
 
 
 def test_orifice_discharge_coefficient_is_close_to_typical_value():
@@ -291,6 +375,19 @@ def test_orifice_with_manual_c_does_not_need_iteration():
     assert result.discharge_coefficient_source == "Manual"
 
 
+def test_orifice_with_manual_c_does_not_require_viscosity(monkeypatch):
+    monkeypatch.setattr(dp_flow, "viscosity_from_neqsim", lambda *args, **kwargs: None)
+    state = _gas_state(viscosity_pa_s=None)
+
+    result = dp_flow.calculate_dp_flow(
+        ORIFICE, state, 500.0, discharge_coefficient=0.6
+    )
+
+    assert result.mass_flow_kg_h > 0.0
+    assert result.discharge_coefficient == pytest.approx(0.6)
+    assert result.reynolds_number is None
+
+
 # ── V-cone ────────────────────────────────────────────────────────────────────
 def test_v_cone_flow_matches_pvtlib_reference():
     state = _gas_state()
@@ -307,6 +404,12 @@ def test_v_cone_flow_matches_pvtlib_reference():
     assert result.discharge_coefficient == pytest.approx(dp_flow.DEFAULT_C_V_CONE)
 
 
+def test_v_cone_mass_flow_matches_independent_reference_case():
+    result = dp_flow.calculate_dp_flow(V_CONE, _gas_state(), 500.0)
+
+    assert result.mass_flow_kg_h == pytest.approx(124586.691517692, rel=1e-10)
+
+
 def test_v_cone_reynolds_number_is_derived_from_viscosity():
     state = _gas_state()
     result = dp_flow.calculate_dp_flow(V_CONE, state, 500.0)
@@ -320,6 +423,8 @@ def test_reynolds_number_is_none_when_viscosity_is_unavailable(monkeypatch):
 
     result = dp_flow.calculate_dp_flow(V_CONE, state, 500.0)
     assert result.reynolds_number is None
+    assert len(result.warnings) == 1
+    assert "could not be checked" in result.warnings[0]
 
 
 # ── Standard volume conversion ────────────────────────────────────────────────
@@ -343,9 +448,30 @@ def test_dp_larger_than_upstream_pressure_is_rejected():
         dp_flow.calculate_dp_flow(VENTURI, _gas_state(pressure=1.5), 2000.0)
 
 
-def test_non_positive_manual_expansibility_is_rejected():
-    with pytest.raises(dp_flow.DPFlowError, match="Expansibility"):
-        dp_flow.calculate_dp_flow(VENTURI, _gas_state(), 500.0, expansibility=0.0)
+def test_out_of_range_manual_expansibility_is_rejected():
+    for expansibility in (0.0, 1.01):
+        with pytest.raises(dp_flow.DPFlowError, match="Expansibility"):
+            dp_flow.calculate_dp_flow(
+                VENTURI, _gas_state(), 500.0, expansibility=expansibility
+            )
+
+
+def test_non_positive_and_nonfinite_manual_discharge_coefficients_are_rejected():
+    for coefficient in (0.0, -0.6, math.nan, math.inf):
+        with pytest.raises(dp_flow.DPFlowError, match="Discharge coefficient"):
+            dp_flow.calculate_dp_flow(
+                VENTURI,
+                _gas_state(),
+                500.0,
+                discharge_coefficient=coefficient,
+            )
+
+
+def test_nonfinite_isentropic_exponent_is_rejected():
+    state = replace(_gas_state(), kappa=math.nan)
+
+    with pytest.raises(dp_flow.DPFlowError, match="Isentropic exponent"):
+        dp_flow.calculate_dp_flow(VENTURI, state, 500.0)
 
 
 # ── ISO 5167 range checks ─────────────────────────────────────────────────────
@@ -389,6 +515,24 @@ def test_high_reynolds_number_is_flagged_for_venturi():
     assert any("above the ISO 5167 maximum" in message for message in result.warnings)
 
 
+def test_high_reynolds_number_is_flagged_for_v_cone():
+    warnings = dp_flow._range_warnings(V_CONE, 1.21e7, 0.99)
+
+    assert len(warnings) == 1
+    assert "above the ISO 5167 maximum" in warnings[0]
+
+
+def test_high_beta_orifice_uses_beta_dependent_minimum_reynolds_number():
+    geometry = dp_flow.MeterGeometry(
+        meter_type="Orifice", pipe_diameter_mm=200.0, bore_diameter_mm=140.0
+    )
+
+    warnings = dp_flow._range_warnings(geometry, 6000.0, 0.99)
+
+    assert len(warnings) == 1
+    assert "below the ISO 5167 minimum" in warnings[0]
+
+
 # ── Inverse solve (sizing) ────────────────────────────────────────────────────
 def test_solve_dp_for_mass_flow_round_trips_through_forward_calculation():
     state = _gas_state()
@@ -430,6 +574,33 @@ def test_solve_dp_for_std_volume_rejects_non_positive_target():
         dp_flow.solve_dp_for_std_volume_flow(VENTURI, _gas_state(), -5.0)
 
 
+def test_solve_dp_rejects_invalid_solver_controls():
+    state = _gas_state()
+
+    with pytest.raises(dp_flow.DPFlowError, match="tolerance"):
+        dp_flow.solve_dp_for_mass_flow(
+            VENTURI, state, 1000.0, tolerance=math.nan
+        )
+    with pytest.raises(dp_flow.DPFlowError, match="iterations"):
+        dp_flow.solve_dp_for_mass_flow(
+            VENTURI, state, 1000.0, max_iterations=0
+        )
+    with pytest.raises(dp_flow.DPFlowError, match="maximum differential pressure"):
+        dp_flow.solve_dp_for_mass_flow(
+            VENTURI, state, 1000.0, dp_max_mbar=math.inf
+        )
+
+
+def test_solve_dp_raises_when_iteration_limit_prevents_convergence():
+    state = _gas_state()
+    target = dp_flow.calculate_dp_flow(VENTURI, state, 500.0).mass_flow_kg_h
+
+    with pytest.raises(dp_flow.DPFlowError, match="did not converge"):
+        dp_flow.solve_dp_for_mass_flow(
+            VENTURI, state, target, max_iterations=1
+        )
+
+
 # ── Convenience wrapper ───────────────────────────────────────────────────────
 def test_convenience_wrapper_matches_two_step_calculation():
     state = _gas_state()
@@ -446,6 +617,17 @@ def test_convenience_wrapper_matches_two_step_calculation():
 # ── View wiring ───────────────────────────────────────────────────────────────
 def test_tab_is_registered_in_view_map():
     assert VIEW_MAP.get("DP Flow Meter") is dp_flow_view.render
+
+
+def test_exactly_one_venturi_preset_matches_the_iso_default():
+    # The view maps the preset equal to the ISO default onto "not overridden" so that the
+    # range checks and the result source label stay correct. That mapping is only
+    # unambiguous while a single preset carries the default value.
+    matching = [
+        label for label, value in dp_flow.VENTURI_C_PRESETS.items()
+        if value == dp_flow.DEFAULT_C_VENTURI
+    ]
+    assert matching == ["As cast convergent (0.984)"]
 
 
 def test_every_meter_type_has_a_diagram_file():

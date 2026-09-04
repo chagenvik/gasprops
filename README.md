@@ -54,7 +54,9 @@ Calculates the flow rate through differential-pressure meters using the ISO 5167
 
 The tab supports single-point, multi-point and inverse (solve for Δp) workflows, converts mass
 flow to Sm³/h and Sm³/d at 1.01325 bara / 15 °C, and flags ISO 5167 range-of-use violations.
-Parameter diagrams for each meter type are in `assets/dp_meters/`.
+Venturi range checks use the as-cast construction envelope; selecting another fixed coefficient
+also emits a reminder to verify its construction-specific limits. Parameter diagrams for each
+meter type are in `assets/dp_meters/`.
 
 The calculation engine lives in `src/gasprop/dp_flow.py` and is free of Streamlit, so it can be
 used directly:

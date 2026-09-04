@@ -26,7 +26,7 @@ from typing import Literal
 import pvtlib
 from pvtlib.metering import differential_pressure_flowmeters as dpm
 
-from .domain import NEQSIM_NAMES
+from .domain import COMPONENTS, NEQSIM_NAMES
 
 MeterType = Literal["Venturi", "Orifice", "V-cone"]
 
@@ -51,8 +51,8 @@ VENTURI_C_PRESETS: dict[str, float] = {
     "Rough-welded sheet-iron convergent (0.985)": 0.985,
 }
 
-#: Range-of-use limits used for the ISO 5167 sanity checks. Values are the
-#: limits stated for the uncalibrated meters in the respective standards.
+#: Range-of-use limits used for the ISO 5167 sanity checks. The Venturi values
+#: are for an as-cast convergent; other constructions have different limits.
 ISO_LIMITS: dict[str, dict[str, tuple[float, float]]] = {
     "Venturi": {
         "pipe_diameter_mm": (100.0, 800.0),
@@ -67,7 +67,7 @@ ISO_LIMITS: dict[str, dict[str, tuple[float, float]]] = {
     "V-cone": {
         "pipe_diameter_mm": (50.0, 500.0),
         "beta": (0.45, 0.75),
-        "reynolds": (8.0e4, math.inf),
+        "reynolds": (8.0e4, 1.2e7),
     },
 }
 
@@ -158,15 +158,33 @@ class GasState:
 
 
 def _normalised_mol_percent(composition: dict[str, float]) -> dict[str, float]:
-    positive = {k: float(v) for k, v in composition.items() if float(v) > 0.0}
+    positive: dict[str, float] = {}
+    for name, raw_value in composition.items():
+        if name not in COMPONENTS:
+            raise DPFlowError(
+                f"Unknown gas component '{name}'. Expected an AGA8 component."
+            )
+        try:
+            value = float(raw_value)
+        except (TypeError, ValueError) as exc:
+            raise DPFlowError(
+                f"Composition value for {name} must be a finite number."
+            ) from exc
+        if not math.isfinite(value):
+            raise DPFlowError(f"Composition value for {name} must be finite.")
+        if value < 0.0:
+            raise DPFlowError(f"Composition value for {name} must not be negative.")
+        if value > 0.0:
+            positive[name] = value
     total = sum(positive.values())
     if total <= 0.0:
         raise DPFlowError("Composition total must be greater than zero.")
     return {k: v / total * 100.0 for k, v in positive.items()}
 
 
-@lru_cache(maxsize=8)
 def _aga8(equation: str) -> pvtlib.AGA8:
+    # pvtlib.AGA8 owns a mutable native adapter, so instances must not be shared
+    # between concurrent Streamlit sessions.
     return pvtlib.AGA8(equation)
 
 
@@ -195,14 +213,22 @@ def _to_celsius(temperature: float, temperature_unit: str) -> float:
 
 def standard_density(composition: dict[str, float], equation: str = "GERG-2008") -> float:
     """Return the AGA8 density at 1.01325 bara and 15 degC [kg/Sm3]."""
-    result = _aga8(equation).calculate_from_PT(
-        composition=_normalised_mol_percent(composition),
-        pressure=STANDARD_PRESSURE_BARA,
-        temperature=STANDARD_TEMPERATURE_C,
-        pressure_unit="bara",
-        temperature_unit="C",
-    )
-    return float(result["rho"])
+    try:
+        result = _aga8(equation).calculate_from_PT(
+            composition=_normalised_mol_percent(composition),
+            pressure=STANDARD_PRESSURE_BARA,
+            temperature=STANDARD_TEMPERATURE_C,
+            pressure_unit="bara",
+            temperature_unit="C",
+        )
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except BaseException as exc:
+        raise DPFlowError(f"AGA8 standard-density calculation failed: {exc}") from exc
+    density = float(result["rho"])
+    if not math.isfinite(density) or density <= 0.0:
+        raise DPFlowError("AGA8 did not return a valid standard density.")
+    return density
 
 
 def viscosity_from_neqsim(
@@ -273,17 +299,24 @@ def calculate_gas_state(
     pressure_bara = _to_bara(pressure, pressure_unit)
     temperature_c = _to_celsius(temperature, temperature_unit)
 
-    if pressure_bara <= 0.0:
-        raise DPFlowError("Upstream pressure must be greater than zero.")
+    if not math.isfinite(pressure_bara) or pressure_bara <= 0.0:
+        raise DPFlowError("Upstream pressure must be a finite number greater than zero.")
+    if not math.isfinite(temperature_c) or temperature_c <= -273.15:
+        raise DPFlowError("Temperature must be finite and greater than absolute zero.")
 
     normalised = _normalised_mol_percent(composition)
-    result = _aga8(equation).calculate_from_PT(
-        composition=normalised,
-        pressure=pressure_bara,
-        temperature=temperature_c,
-        pressure_unit="bara",
-        temperature_unit="C",
-    )
+    try:
+        result = _aga8(equation).calculate_from_PT(
+            composition=normalised,
+            pressure=pressure_bara,
+            temperature=temperature_c,
+            pressure_unit="bara",
+            temperature_unit="C",
+        )
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except BaseException as exc:
+        raise DPFlowError(f"AGA8 gas-state calculation failed: {exc}") from exc
 
     density = float(result["rho"])
     if not math.isfinite(density) or density <= 0.0:
@@ -317,6 +350,14 @@ def calculate_gas_state(
 
 
 # ── Expansibility ─────────────────────────────────────────────────────────────
+#: Relative pressure drop dP/p1 below which the expansibility is taken as exactly 1.
+#: The ISO 5167-4 Venturi formula contains the factor (1 - tau^((k-1)/k)) / (1 - tau),
+#: which suffers catastrophic cancellation as tau -> 1: it returns values slightly above
+#: 1 and eventually divides by zero. Below this threshold the true value of 1 - epsilon
+#: is under 1e-9, so the exact limit is returned instead.
+NEGLIGIBLE_PRESSURE_DROP_RATIO = 1.0e-9
+
+
 def calculate_expansibility(
     geometry: MeterGeometry,
     pressure_bara: float,
@@ -324,9 +365,11 @@ def calculate_expansibility(
     kappa: float,
 ) -> float:
     """Expansibility factor for the given meter type [-]."""
-    # At zero differential pressure the correlations reduce to 1, but the Venturi
-    # formula evaluates 0/0 there, so the limit is returned explicitly.
-    if dp_mbar == 0.0:
+    if pressure_bara <= 0.0:
+        raise DPFlowError("Upstream pressure must be greater than zero.")
+
+    # All three correlations tend to 1 as the pressure drop vanishes.
+    if dp_mbar / (1000.0 * pressure_bara) < NEGLIGIBLE_PRESSURE_DROP_RATIO:
         return 1.0
 
     beta = geometry.beta
@@ -398,8 +441,15 @@ def _range_warnings(
             f"Orifice bore d = {geometry.bore_diameter_mm:.2f} mm is below the ISO 5167-2 minimum of 12.5 mm."
         )
 
-    if re_number is not None and math.isfinite(re_number):
-        re_min, re_max = limits["reynolds"]
+    if re_number is None or not math.isfinite(re_number):
+        warnings.append(
+            "Reynolds number could not be checked because dynamic viscosity is unavailable."
+        )
+    else:
+        if geometry.meter_type == "Orifice" and beta > 0.56:
+            re_min, re_max = 16000.0 * beta**2, math.inf
+        else:
+            re_min, re_max = limits["reynolds"]
         if re_number < re_min:
             warnings.append(
                 f"Reynolds number {re_number:.3e} is below the ISO 5167 minimum "
@@ -451,6 +501,8 @@ def calculate_dp_flow(
         raise DPFlowError("Differential pressure must be a finite number greater than or equal to zero.")
 
     p1 = gas_state.pressure_bara
+    if not math.isfinite(p1) or p1 <= 0.0:
+        raise DPFlowError("Upstream pressure must be a finite number greater than zero.")
     p2 = p1 - dp_mbar / 1000.0
     if p2 <= 0.0:
         raise DPFlowError(
@@ -460,15 +512,42 @@ def calculate_dp_flow(
     pressure_ratio = p2 / p1
 
     if expansibility is None:
+        if not math.isfinite(gas_state.kappa) or gas_state.kappa <= 0.0:
+            raise DPFlowError(
+                "Isentropic exponent must be a finite number greater than zero."
+            )
         epsilon = calculate_expansibility(geometry, p1, dp_mbar, gas_state.kappa)
         epsilon_source = "Calculated from AGA8 kappa"
     else:
         epsilon = float(expansibility)
         epsilon_source = "Manual"
-    if not math.isfinite(epsilon) or epsilon <= 0.0:
-        raise DPFlowError("Expansibility factor must be a finite number greater than zero.")
+    if not math.isfinite(epsilon) or not (0.0 < epsilon <= 1.0):
+        raise DPFlowError(
+            "Expansibility factor must be a finite number greater than zero and at most one."
+        )
 
     rho1 = gas_state.density_kg_m3
+    if not math.isfinite(rho1) or rho1 <= 0.0:
+        raise DPFlowError("Upstream density must be a finite number greater than zero.")
+    if (
+        not math.isfinite(gas_state.standard_density_kg_sm3)
+        or gas_state.standard_density_kg_sm3 <= 0.0
+    ):
+        raise DPFlowError("Standard density must be a finite number greater than zero.")
+
+    if discharge_coefficient is None:
+        fixed_c = None
+    else:
+        try:
+            fixed_c = float(discharge_coefficient)
+        except (TypeError, ValueError) as exc:
+            raise DPFlowError(
+                "Discharge coefficient must be a finite number greater than zero."
+            ) from exc
+        if not math.isfinite(fixed_c) or fixed_c <= 0.0:
+            raise DPFlowError(
+                "Discharge coefficient must be a finite number greater than zero."
+            )
 
     # pvtlib rejects dP = 0 for Venturi tubes when its own input checks are enabled, but a
     # zero differential pressure is a valid no-flow point. Our own validation above already
@@ -476,8 +555,8 @@ def calculate_dp_flow(
     check_input = dp_mbar > 0.0
 
     if geometry.meter_type == "Venturi":
-        c_used = DEFAULT_C_VENTURI if discharge_coefficient is None else float(discharge_coefficient)
-        c_source = "ISO 5167-4 default (as cast)" if discharge_coefficient is None else "Manual"
+        c_used = DEFAULT_C_VENTURI if fixed_c is None else fixed_c
+        c_source = "ISO 5167-4 default (as cast)" if fixed_c is None else "Manual"
         flow = dpm.calculate_flow_venturi(
             D=geometry.D_m,
             d=geometry.bore_m,
@@ -488,8 +567,8 @@ def calculate_dp_flow(
             check_input=check_input,
         )
     elif geometry.meter_type == "V-cone":
-        c_used = DEFAULT_C_V_CONE if discharge_coefficient is None else float(discharge_coefficient)
-        c_source = "ISO 5167-5 default" if discharge_coefficient is None else "Manual"
+        c_used = DEFAULT_C_V_CONE if fixed_c is None else fixed_c
+        c_source = "ISO 5167-5 default" if fixed_c is None else "Manual"
         flow = dpm.calculate_flow_V_cone(
             D=geometry.D_m,
             beta=geometry.beta,
@@ -500,28 +579,37 @@ def calculate_dp_flow(
             check_input=check_input,
         )
     else:
-        if discharge_coefficient is None and gas_state.viscosity_pa_s is None:
+        if fixed_c is None and gas_state.viscosity_pa_s is None:
             raise DPFlowError(
                 "An orifice discharge coefficient must either be given directly, or a dynamic "
                 "viscosity must be available so the Reader-Harris/Gallagher equation can be solved."
+            )
+        if fixed_c is None and dp_mbar == 0.0:
+            raise DPFlowError(
+                "The Reader-Harris/Gallagher discharge coefficient is undefined at zero flow. "
+                "Supply a fixed discharge coefficient for a zero-dP orifice calculation."
             )
         flow = dpm.calculate_flow_orifice(
             D=geometry.D_m,
             d=geometry.bore_m,
             dP=dp_mbar,
             rho1=rho1,
-            mu=gas_state.viscosity_pa_s,
-            C=discharge_coefficient,
+            mu=(
+                gas_state.viscosity_pa_s
+                if gas_state.viscosity_pa_s is not None
+                else math.nan
+            ),
+            C=fixed_c,
             epsilon=epsilon,
             tapping=geometry.tapping,
             check_input=check_input,
         )
         # pvtlib only reports the discharge coefficient back when it solved for it,
         # so a caller-supplied C is carried through explicitly.
-        c_used = float(discharge_coefficient) if discharge_coefficient is not None else float(flow["C"])
+        c_used = fixed_c if fixed_c is not None else float(flow["C"])
         c_source = (
             "Manual"
-            if discharge_coefficient is not None
+            if fixed_c is not None
             else f"Reader-Harris/Gallagher ({geometry.tapping} tappings)"
         )
 
@@ -537,6 +625,13 @@ def calculate_dp_flow(
     re_value = float(re_number) if re_number is not None and math.isfinite(float(re_number)) else None
 
     std_volume_flow = mass_flow / gas_state.standard_density_kg_sm3
+
+    warnings = _range_warnings(geometry, re_value, pressure_ratio)
+    if geometry.meter_type == "Venturi" and fixed_c is not None:
+        warnings.append(
+            "Venturi geometry and Reynolds checks use the ISO 5167-4 as-cast "
+            "construction range; verify construction-specific limits for this fixed C."
+        )
 
     return DPFlowResult(
         meter_type=geometry.meter_type,
@@ -554,7 +649,7 @@ def calculate_dp_flow(
         differential_pressure_mbar=dp_mbar,
         pressure_ratio=pressure_ratio,
         gas_state=gas_state,
-        warnings=tuple(_range_warnings(geometry, re_value, pressure_ratio)),
+        warnings=tuple(warnings),
     )
 
 
@@ -612,14 +707,30 @@ def solve_dp_for_mass_flow(
     target = float(target_mass_flow_kg_h)
     if not math.isfinite(target) or target <= 0.0:
         raise DPFlowError("Target mass flow rate must be a finite number greater than zero.")
+    try:
+        tolerance = float(tolerance)
+    except (TypeError, ValueError) as exc:
+        raise DPFlowError(
+            "Solver tolerance must be a finite number greater than zero."
+        ) from exc
+    if not math.isfinite(tolerance) or tolerance <= 0.0:
+        raise DPFlowError("Solver tolerance must be a finite number greater than zero.")
+    if isinstance(max_iterations, bool) or not isinstance(max_iterations, int) or max_iterations <= 0:
+        raise DPFlowError("Maximum solver iterations must be a positive integer.")
 
     # Mass flow only increases monotonically with dP while the expansibility correlation
     # stays inside its validated range (p2/p1 >= MIN_PRESSURE_RATIO), so the bisection
     # search is capped there rather than at the pressure where p2 reaches zero.
     ceiling = gas_state.pressure_bara * 1000.0 * (1.0 - MIN_PRESSURE_RATIO)
-    upper = ceiling if dp_max_mbar is None else min(float(dp_max_mbar), ceiling)
-    if upper <= 0.0:
-        raise DPFlowError("The maximum differential pressure must be greater than zero.")
+    if dp_max_mbar is None:
+        upper = ceiling
+    else:
+        requested_upper = float(dp_max_mbar)
+        if not math.isfinite(requested_upper) or requested_upper <= 0.0:
+            raise DPFlowError(
+                "The maximum differential pressure must be a finite number greater than zero."
+            )
+        upper = min(requested_upper, ceiling)
 
     def mass_flow_at(dp: float) -> float:
         return calculate_dp_flow(
@@ -649,7 +760,9 @@ def solve_dp_for_mass_flow(
         else:
             high = mid
     else:
-        mid = 0.5 * (low + high)
+        raise DPFlowError(
+            f"The differential-pressure solve did not converge within {max_iterations} iterations."
+        )
 
     return calculate_dp_flow(
         geometry,

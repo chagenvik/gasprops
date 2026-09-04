@@ -181,6 +181,10 @@ def _coefficient_inputs(meter_type: str) -> tuple[float | None, float | None]:
                     "C [-]", min_value=0.1, max_value=1.5, value=DEFAULT_C_VENTURI, step=0.001, format="%.5f",
                     key="dpf_c_manual_venturi",
                 )
+            elif VENTURI_C_PRESETS[c_mode] == DEFAULT_C_VENTURI:
+                # The as-cast preset is the ISO 5167-4 default the range checks assume,
+                # so it is passed as "not overridden" rather than as a fixed coefficient.
+                discharge_coefficient = None
             else:
                 discharge_coefficient = VENTURI_C_PRESETS[c_mode]
         else:
