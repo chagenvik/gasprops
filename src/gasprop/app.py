@@ -8,6 +8,7 @@ from .composition_input import composition_input, composition_io_controls
 from .views import (
     aga8_vs_refprop,
     comparison,
+    dp_flow,
     flash,
     mix,
     multi,
@@ -29,12 +30,35 @@ VIEW_MAP = {
     "Property Tables": tables.render,
     "3D plot": surface.render,
     "Uncertainty Analysis": uncertainty.render,
+    "DP Flow Meter": dp_flow.render,
     "AGA8 EoS Comparison": comparison.render,
     "AGA8 Validation": validation.render,
     "AGA8 vs REFPROP": aga8_vs_refprop.render,
     "Flash Calculation": flash.render,
     "Phase Envelope": phase.render,
 }
+
+#: Tabs backed by NeqSim rather than AGA8; visually highlighted in the tab bar.
+NEQSIM_TAB_LABELS = ("Flash Calculation", "Phase Envelope")
+
+#: Tabs presenting a pre-computed data study; visually highlighted in the tab bar.
+DATA_STUDY_TAB_LABELS = ("AGA8 vs REFPROP",)
+
+
+def tab_nth_child_selector(labels: tuple[str, ...], suffix: str = "") -> str:
+    """Build a CSS selector list targeting the given tabs by their position in VIEW_MAP.
+
+    Streamlit renders tabs in ``VIEW_MAP`` order, so the highlight styling is derived
+    from that order instead of hard-coded indices that silently break when a tab is
+    added or reordered.
+    """
+    order = list(VIEW_MAP.keys())
+    selectors = [
+        f'[data-testid="stTabs"] [data-baseweb="tab"]:nth-child({order.index(label) + 1}){suffix}'
+        for label in labels
+        if label in order
+    ]
+    return ",\n        ".join(selectors)
 
 
 def _render_terms_notice() -> None:
@@ -116,14 +140,12 @@ def run_app() -> None:
         }
 
         /* Highlight NeqSim-backed tabs (Flash + Phase Envelope) */
-        [data-testid="stTabs"] [data-baseweb="tab"]:nth-child(10),
-        [data-testid="stTabs"] [data-baseweb="tab"]:nth-child(11) {
+        __NEQSIM_TABS__ {
             border-color: rgba(15, 126, 140, 0.3);
             background: rgba(234, 249, 250, 0.95);
             color: #0f6773;
         }
-        [data-testid="stTabs"] [data-baseweb="tab"]:nth-child(10)[aria-selected="true"],
-        [data-testid="stTabs"] [data-baseweb="tab"]:nth-child(11)[aria-selected="true"] {
+        __NEQSIM_TABS_SELECTED__ {
             background: linear-gradient(120deg, #0f8bd5 0%, #14a99a 100%);
             color: white;
             border-color: rgba(13, 122, 133, 0.5);
@@ -131,12 +153,12 @@ def run_app() -> None:
         }
 
         /* Distinguish the AGA8 vs REFPROP tab (data-study tab) */
-        [data-testid="stTabs"] [data-baseweb="tab"]:nth-child(9) {
+        __DATA_STUDY_TABS__ {
             border-color: rgba(124, 58, 173, 0.32);
             background: rgba(245, 238, 252, 0.95);
             color: #6b2fae;
         }
-        [data-testid="stTabs"] [data-baseweb="tab"]:nth-child(9)[aria-selected="true"] {
+        __DATA_STUDY_TABS_SELECTED__ {
             background: linear-gradient(120deg, #7c3aad 0%, #a465e6 100%);
             color: white;
             border-color: rgba(108, 47, 174, 0.5);
@@ -212,7 +234,13 @@ def run_app() -> None:
             }
         }
         </style>
-        """,
+        """.replace("__NEQSIM_TABS_SELECTED__", tab_nth_child_selector(NEQSIM_TAB_LABELS, '[aria-selected="true"]'))
+        .replace("__NEQSIM_TABS__", tab_nth_child_selector(NEQSIM_TAB_LABELS))
+        .replace(
+            "__DATA_STUDY_TABS_SELECTED__",
+            tab_nth_child_selector(DATA_STUDY_TAB_LABELS, '[aria-selected="true"]'),
+        )
+        .replace("__DATA_STUDY_TABS__", tab_nth_child_selector(DATA_STUDY_TAB_LABELS)),
         unsafe_allow_html=True,
     )
     if LOGO_PATH.exists():
@@ -266,6 +294,7 @@ Computes thermodynamic and transport properties using two calculation engines:
    - **Property Tables** — sweep over P/T grids; export to CSV/PDF.
    - **3D plot** — visualise a property over a P/T plane.
    - **Uncertainty Analysis** — propagate composition and P/T uncertainty.
+   - **DP Flow Meter** — flow rate through Venturi, orifice and V-cone DP meters (ISO 5167) using AGA8 gas properties.
    - **AGA8 EoS Comparison** — compare AGA8 calculation modes.
    - **AGA8 Validation** — check composition according to quality ranges in the AGA8 report.
    - **Flash Calculation** — NeqSim TP flash for single tables or P/T ranges, with gas/liquid outputs.

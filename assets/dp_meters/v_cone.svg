@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 400" width="720" height="400" role="img"
+     aria-label="V-cone meter diagram showing pipe diameter D, cone diameter dc at the beta edge and the differential pressure taps p1 and p2.">
+  <defs>
+    <marker id="dimEnd" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#0f8bd5"/>
+    </marker>
+    <marker id="dimStart" markerWidth="9" markerHeight="9" refX="1" refY="4.5" orient="auto">
+      <path d="M9,0 L0,4.5 L9,9 z" fill="#0f8bd5"/>
+    </marker>
+    <marker id="dimEndLight" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#ffffff"/>
+    </marker>
+    <marker id="dimStartLight" markerWidth="9" markerHeight="9" refX="1" refY="4.5" orient="auto">
+      <path d="M9,0 L0,4.5 L9,9 z" fill="#ffffff"/>
+    </marker>
+    <marker id="flowEnd" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="12" refX="13" refY="6" orient="auto">
+      <path d="M0,0 L14,6 L0,12 z" fill="#0f8bd5"/>
+    </marker>
+  </defs>
+
+  <style>
+    .lbl   { font-family: "Segoe UI", Arial, sans-serif; font-size: 17px; font-weight: 700; fill: #083a5f; }
+    .lblw  { font-family: "Segoe UI", Arial, sans-serif; font-size: 17px; font-weight: 700; fill: #ffffff; }
+    .tap   { font-family: "Segoe UI", Arial, sans-serif; font-size: 14px; fill: #19567d; }
+    .edge  { font-family: "Segoe UI", Arial, sans-serif; font-size: 13px; fill: #0f8bd5; }
+    .title { font-family: "Segoe UI", Arial, sans-serif; font-size: 16px; font-weight: 700; fill: #083a5f; }
+    .note  { font-family: "Segoe UI", Arial, sans-serif; font-size: 14px; fill: #194f73; }
+    .form  { font-family: "Segoe UI", Arial, sans-serif; font-size: 15px; font-weight: 700; fill: #0f8bd5; }
+    .dim   { stroke: #0f8bd5; stroke-width: 1.6; fill: none; }
+    .dimw  { stroke: #ffffff; stroke-width: 1.8; fill: none; }
+    .tapln { stroke: #19567d; stroke-width: 2; fill: none; }
+    .wall  { stroke: #4a6b80; stroke-width: 9; fill: none; stroke-linecap: round; }
+    .metal { fill: #7f9cae; stroke: #3d5a6b; stroke-width: 2; stroke-linejoin: round; }
+  </style>
+
+  <rect x="0" y="0" width="720" height="400" fill="#ffffff"/>
+  <text class="title" x="360" y="24" text-anchor="middle">V-cone meter — ISO 5167-5</text>
+
+  <!-- gas volume inside the pipe -->
+  <rect x="60" y="135" width="600" height="110" fill="#dff1ff"/>
+
+  <!-- pipe walls -->
+  <line class="wall" x1="60" y1="135" x2="660" y2="135"/>
+  <line class="wall" x1="60" y1="245" x2="660" y2="245"/>
+
+  <!-- cone support (rod to the downstream pipe wall) -->
+  <polygon class="metal" points="472,182 598,182 598,135 612,135 612,198 472,198"/>
+  <!-- cone, apex pointing upstream -->
+  <polygon class="metal" points="295,190 430,148 472,166 472,214 430,232"/>
+
+  <!-- flow direction -->
+  <line x1="14" y1="190" x2="46" y2="190" stroke="#0f8bd5" stroke-width="4" marker-end="url(#flowEnd)"/>
+  <text class="tap" x="31" y="176" text-anchor="middle">Flow</text>
+
+  <!-- pipe diameter D -->
+  <line class="dim" x1="130" y1="135" x2="130" y2="245" marker-start="url(#dimStart)" marker-end="url(#dimEnd)"/>
+  <text class="lbl" x="118" y="196" text-anchor="end">D</text>
+
+  <!-- cone diameter dc at the beta edge -->
+  <line class="dimw" x1="430" y1="148" x2="430" y2="232"
+        marker-start="url(#dimStartLight)" marker-end="url(#dimEndLight)"/>
+  <text class="lblw" x="420" y="196" text-anchor="end">d<tspan font-size="12" dy="4">c</tspan></text>
+  <text class="edge" x="430" y="126" text-anchor="middle">beta edge</text>
+
+  <!-- pressure tappings and dP transmitter -->
+  <line class="tapln" x1="180" y1="139" x2="180" y2="70"/>
+  <line class="tapln" x1="605" y1="139" x2="605" y2="70"/>
+  <line class="tapln" x1="180" y1="70" x2="605" y2="70"/>
+  <circle cx="392" cy="70" r="24" fill="#ffffff" stroke="#0f8bd5" stroke-width="2.5"/>
+  <text class="lbl" x="392" y="76" text-anchor="middle">Δp</text>
+  <text class="tap" x="172" y="118" text-anchor="end">p₁, T₁</text>
+  <text class="tap" x="614" y="118" text-anchor="start">p₂</text>
+
+  <text class="form" x="660" y="286" text-anchor="end">β = √(1 − d<tspan font-size="12" dy="4">c</tspan><tspan dy="-4">² / D²)</tspan></text>
+
+  <text class="note" x="60" y="312">D — pipe inner diameter at the beta edge / upstream tapping [mm]</text>
+  <text class="note" x="60" y="334">d꜀ — cone diameter in the plane of the beta edge [mm]</text>
+  <text class="note" x="60" y="356">Δp = p₁ − p₂ — differential pressure [mbar], p₂ measured through the cone support</text>
+  <text class="note" x="60" y="378">Expansibility from the Stewart V-cone correlation using the AGA8 isentropic exponent κ</text>
+</svg>
