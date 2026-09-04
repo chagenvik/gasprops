@@ -1,4 +1,5 @@
 from pathlib import Path
+import math
 import sys
 
 import pytest
@@ -305,6 +306,92 @@ def test_every_time_unit_has_a_label():
         assert unit in fc.TIME_UNIT_LABELS
 
 
+# ── Pipe velocity ─────────────────────────────────────────────────────────────
+def test_velocity_is_none_when_no_diameter_is_given():
+    result = _convert()
+    assert result.velocity_m_s is None
+    assert result.pipe_inner_diameter_mm is None
+
+
+def test_velocity_matches_volume_flow_over_cross_sectional_area():
+    result = _convert(pipe_inner_diameter_mm=200.0)
+
+    area = math.pi * (0.200 / 2.0) ** 2
+    expected = result.actual_volume_flow_m3_s / area
+
+    assert result.velocity_m_s == pytest.approx(expected)
+    assert result.pipe_inner_diameter_mm == pytest.approx(200.0)
+
+
+def test_velocity_uses_actual_volume_flow_not_standard_volume_flow():
+    result = _convert(pipe_inner_diameter_mm=200.0)
+
+    area = math.pi * (0.200 / 2.0) ** 2
+    standard_based = result.standard_volume_flow_sm3_s / area
+
+    assert result.velocity_m_s != pytest.approx(standard_based)
+
+
+def test_velocity_scales_with_the_inverse_square_of_the_diameter():
+    narrow = _convert(pipe_inner_diameter_mm=100.0)
+    wide = _convert(pipe_inner_diameter_mm=200.0)
+
+    assert narrow.velocity_m_s == pytest.approx(wide.velocity_m_s * 4.0)
+
+
+def test_velocity_scales_linearly_with_flow_rate():
+    single = _convert(value=100_000.0, pipe_inner_diameter_mm=200.0)
+    double = _convert(value=200_000.0, pipe_inner_diameter_mm=200.0)
+
+    assert double.velocity_m_s == pytest.approx(single.velocity_m_s * 2.0)
+
+
+def test_velocity_is_independent_of_the_input_time_basis():
+    per_hour = _convert(value=3600.0, time_unit="h", pipe_inner_diameter_mm=200.0)
+    per_second = _convert(value=1.0, time_unit="s", pipe_inner_diameter_mm=200.0)
+
+    assert per_hour.velocity_m_s == pytest.approx(per_second.velocity_m_s)
+
+
+def test_velocity_is_independent_of_the_standard_conditions():
+    sm3 = _convert(
+        pipe_inner_diameter_mm=200.0,
+        standard_conditions=fc.StandardConditions(1.01325, 15.0),
+    )
+    nm3 = _convert(
+        pipe_inner_diameter_mm=200.0,
+        standard_conditions=fc.StandardConditions(1.01325, 0.0),
+    )
+
+    assert nm3.velocity_m_s == pytest.approx(sm3.velocity_m_s)
+
+
+def test_zero_flow_gives_zero_velocity():
+    result = _convert(value=0.0, pipe_inner_diameter_mm=200.0)
+    assert result.velocity_m_s == pytest.approx(0.0)
+
+
+def test_non_positive_pipe_diameter_is_rejected():
+    with pytest.raises(DPFlowError, match="Inner pipe diameter"):
+        _convert(pipe_inner_diameter_mm=0.0)
+    with pytest.raises(DPFlowError, match="Inner pipe diameter"):
+        _convert(pipe_inner_diameter_mm=-50.0)
+
+
+def test_pipe_velocity_helper_matches_a_hand_calculation():
+    # 1 m³/s through a 1 m bore: v = 1 / (pi/4) = 1.27324 m/s
+    assert fc.pipe_velocity(1.0, 1000.0) == pytest.approx(4.0 / math.pi)
+
+
+def test_property_rows_include_velocity_only_when_a_diameter_was_given():
+    without = flow_converter_view._property_rows(_convert())
+    with_diameter = flow_converter_view._property_rows(_convert(pipe_inner_diameter_mm=200.0))
+
+    assert not any("velocity" in row["Quantity"].lower() for row in without)
+    assert any("velocity" in row["Quantity"].lower() for row in with_diameter)
+    assert any("diameter" in row["Quantity"].lower() for row in with_diameter)
+
+
 # ── Result table ──────────────────────────────────────────────────────────────
 def test_result_frame_has_no_missing_values():
     # Regression guard: the table used to build one dict per time basis with the time
@@ -359,13 +446,13 @@ def test_large_numbers_are_formatted_without_decimal_noise():
     assert flow_converter_view._format_number(132_786.7869) == "132,787"
 
 
-def test_mid_range_numbers_keep_one_decimal():
-    assert flow_converter_view._format_number(2_000.0) == "2,000.0"
+def test_trailing_zeros_are_dropped():
+    assert flow_converter_view._format_number(2_000.0) == "2,000"
 
 
 def test_small_numbers_keep_useful_resolution():
-    assert flow_converter_view._format_number(27.7555) == "27.756"
-    assert flow_converter_view._format_number(0.555556) == "0.55556"
+    assert flow_converter_view._format_number(27.7555) == "27.7555"
+    assert flow_converter_view._format_number(0.555556) == "0.555556"
 
 
 def test_very_small_numbers_fall_back_to_scientific_notation():

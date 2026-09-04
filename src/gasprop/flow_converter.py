@@ -20,6 +20,8 @@ import math
 from dataclasses import dataclass
 from typing import Literal
 
+from pvtlib import fluid_mechanics
+
 from .dp_flow import DPFlowError, _normalised_mol_percent, _to_bara, _to_celsius, _aga8
 
 FlowBasis = Literal["mass", "actual_volume", "standard_volume"]
@@ -100,6 +102,8 @@ class FlowConversionResult:
     temperature_c: float
     standard_conditions: StandardConditions
     equation: str
+    pipe_inner_diameter_mm: float | None = None
+    velocity_m_s: float | None = None
 
     def in_time_unit(self, time_unit: str) -> tuple[float, float, float]:
         """Return (mass, actual volume, standard volume) flow per the given time unit."""
@@ -163,6 +167,23 @@ def _density(
     return density
 
 
+def pipe_velocity(actual_volume_flow_m3_s: float, pipe_inner_diameter_mm: float) -> float:
+    """Bulk gas velocity in a round pipe at line conditions [m/s].
+
+    The velocity follows from the *actual* volume flow, not the standard volume flow,
+    since it is the gas at line pressure and temperature that fills the pipe.
+    """
+    diameter = float(pipe_inner_diameter_mm)
+    if not math.isfinite(diameter) or diameter <= 0.0:
+        raise DPFlowError("Inner pipe diameter must be a finite number greater than zero.")
+    return float(
+        fluid_mechanics.superficial_velocity(
+            Q_phase=actual_volume_flow_m3_s * 3600.0,
+            D=diameter / 1000.0,
+        )
+    )
+
+
 def convert_flow(
     composition: dict[str, float],
     value: float,
@@ -176,6 +197,7 @@ def convert_flow(
     temperature_unit: str = "C",
     equation: str = "GERG-2008",
     standard_conditions: StandardConditions | None = None,
+    pipe_inner_diameter_mm: float | None = None,
 ) -> FlowConversionResult:
     """Convert one flow rate into its mass, actual-volume and standard-volume equivalents.
 
@@ -192,6 +214,9 @@ def convert_flow(
         Actual (line) conditions, in ``pressure_unit`` and ``temperature_unit``.
     standard_conditions:
         Reference conditions for the standard volume flow. Defaults to 1.01325 bara / 15 degC.
+    pipe_inner_diameter_mm:
+        Optional inner pipe diameter [mm]. When given, the bulk gas velocity at line
+        conditions is calculated as well.
     """
     if basis not in FLOW_BASES:
         raise DPFlowError(f"Unknown flow basis '{basis}'. Expected one of {list(FLOW_BASES)}.")
@@ -228,9 +253,17 @@ def convert_flow(
     else:
         mass_flow_kg_s = value / seconds * standard_density
 
+    actual_volume_flow_m3_s = mass_flow_kg_s / actual_density
+
+    diameter: float | None = None
+    velocity: float | None = None
+    if pipe_inner_diameter_mm is not None:
+        diameter = float(pipe_inner_diameter_mm)
+        velocity = pipe_velocity(actual_volume_flow_m3_s, diameter)
+
     return FlowConversionResult(
         mass_flow_kg_s=mass_flow_kg_s,
-        actual_volume_flow_m3_s=mass_flow_kg_s / actual_density,
+        actual_volume_flow_m3_s=actual_volume_flow_m3_s,
         standard_volume_flow_sm3_s=mass_flow_kg_s / standard_density,
         actual_density_kg_m3=actual_density,
         standard_density_kg_sm3=standard_density,
@@ -238,4 +271,6 @@ def convert_flow(
         temperature_c=temperature_c,
         standard_conditions=std,
         equation=equation,
+        pipe_inner_diameter_mm=diameter,
+        velocity_m_s=velocity,
     )

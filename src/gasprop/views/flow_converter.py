@@ -24,6 +24,7 @@ from ..flow_converter import (
     StandardConditions,
     convert_flow,
 )
+from ..formatting import format_value
 from ..operating_conditions import (
     aga8_equation_input,
     pressure_input,
@@ -69,26 +70,8 @@ def _standard_condition_inputs() -> StandardConditions:
 
 
 def _format_number(value: float) -> str:
-    """Format an engineering quantity with a readable, magnitude-dependent precision.
-
-    Flow rates in this tab span many orders of magnitude (m³/s up to Sm³/d), so a fixed
-    number of decimals is either noise or a loss of resolution. Roughly six significant
-    digits are kept without printing meaningless trailing decimals on large numbers.
-    """
-    if value is None or not math.isfinite(value):
-        return "–"
-    magnitude = abs(value)
-    if magnitude == 0.0:
-        return "0"
-    if magnitude >= 100_000.0:
-        return f"{value:,.0f}"
-    if magnitude >= 1_000.0:
-        return f"{value:,.1f}"
-    if magnitude >= 1.0:
-        return f"{value:,.3f}"
-    if magnitude >= 0.001:
-        return f"{value:.5f}"
-    return f"{value:.4e}"
+    """Format an engineering quantity for display."""
+    return format_value(value)
 
 
 def _result_frame(result: FlowConversionResult, mass_unit: str) -> pd.DataFrame:
@@ -117,25 +100,42 @@ def _result_frame(result: FlowConversionResult, mass_unit: str) -> pd.DataFrame:
 
 def _property_rows(result: FlowConversionResult) -> list[dict[str, str]]:
     std = result.standard_conditions
-    return [
+    rows = [
         {
             "Quantity": f"Actual density ρ ({result.equation})",
-            "Value": f"{result.actual_density_kg_m3:,.4f}",
+            "Value": format_value(result.actual_density_kg_m3),
             "Unit": "kg/m³",
         },
         {
-            "Quantity": f"Standard density ρ_std ({std.label})",
-            "Value": f"{result.standard_density_kg_sm3:,.5f}",
+            "Quantity": f"Standard density ρ_std (at {std.label})",
+            "Value": format_value(result.standard_density_kg_sm3),
             "Unit": "kg/Sm³",
         },
         {
             "Quantity": "Volume ratio (actual → standard)",
-            "Value": f"{result.formation_volume_ratio:,.3f}",
+            "Value": format_value(result.formation_volume_ratio),
             "Unit": "Sm³/m³",
         },
-        {"Quantity": "Pressure", "Value": f"{result.pressure_bara:,.3f}", "Unit": "bara"},
-        {"Quantity": "Temperature", "Value": f"{result.temperature_c:,.2f}", "Unit": "°C"},
+        {"Quantity": "Pressure", "Value": format_value(result.pressure_bara), "Unit": "bara"},
+        {"Quantity": "Temperature", "Value": format_value(result.temperature_c), "Unit": "°C"},
     ]
+    if result.pipe_inner_diameter_mm is not None:
+        rows.append(
+            {
+                "Quantity": "Inner pipe diameter",
+                "Value": format_value(result.pipe_inner_diameter_mm),
+                "Unit": "mm",
+            }
+        )
+    if result.velocity_m_s is not None:
+        rows.append(
+            {
+                "Quantity": "Pipe velocity at line conditions",
+                "Value": format_value(result.velocity_m_s),
+                "Unit": "m/s",
+            }
+        )
+    return rows
 
 
 def render(composition: dict | None) -> None:
@@ -197,6 +197,16 @@ def render(composition: dict | None) -> None:
     temperature, temperature_unit, _ = temperature_input(
         value_key="fc_temperature", unit_key="fc_t_unit", value=20.0,
     )
+    pipe_diameter = st.number_input(
+        "Inner pipe diameter [mm] — optional",
+        min_value=0.0, max_value=10_000.0, value=None, step=1.0, format="%.3f",
+        key="fc_pipe_diameter",
+        placeholder="Leave empty to skip the velocity calculation",
+        help=(
+            "When given, the bulk gas velocity at line conditions is calculated from the "
+            "actual volume flow."
+        ),
+    )
     equation = aga8_equation_input(key="fc_eos")
 
     st.markdown("#### Standard conditions")
@@ -218,6 +228,10 @@ def render(composition: dict | None) -> None:
             temperature_unit=temperature_unit,
             equation=equation,
             standard_conditions=standard_conditions,
+            # An empty diameter field means "skip the velocity"; 0 would be invalid.
+            pipe_inner_diameter_mm=(
+                float(pipe_diameter) if pipe_diameter not in (None, 0.0) else None
+            ),
         )
     except DPFlowError as exc:
         st.error(str(exc))
@@ -228,13 +242,16 @@ def render(composition: dict | None) -> None:
 
     mass, actual, standard = result.in_time_unit(time_unit)
     suffix = _unit_suffix(time_unit)
-    m1, m2, m3 = st.columns(3)
-    m1.metric(
+    metric_count = 4 if result.velocity_m_s is not None else 3
+    metrics = st.columns(metric_count)
+    metrics[0].metric(
         f"Mass flow [{mass_unit}/{suffix}]",
         _format_number(mass / MASS_UNIT_KG[mass_unit]),
     )
-    m2.metric(f"Actual volume flow [m³/{suffix}]", _format_number(actual))
-    m3.metric(f"Standard volume flow [Sm³/{suffix}]", _format_number(standard))
+    metrics[1].metric(f"Actual volume flow [m³/{suffix}]", _format_number(actual))
+    metrics[2].metric(f"Standard volume flow [Sm³/{suffix}]", _format_number(standard))
+    if result.velocity_m_s is not None:
+        metrics[3].metric("Pipe velocity [m/s]", _format_number(result.velocity_m_s))
 
     st.markdown("##### All time bases")
     frame = _result_frame(result, mass_unit)

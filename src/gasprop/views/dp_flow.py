@@ -27,6 +27,7 @@ from ..dp_flow import (
     ISO_LIMITS,
     METER_TYPES,
     ORIFICE_TAPPINGS,
+    STANDARD_CONDITIONS_LABEL,
     VENTURI_C_PRESETS,
     DPFlowError,
     DPFlowResult,
@@ -36,6 +37,7 @@ from ..dp_flow import (
     solve_dp_for_mass_flow,
     solve_dp_for_std_volume_flow,
 )
+from ..formatting import format_value
 from ..operating_conditions import (
     PRESSURE_UNITS,
     TEMPERATURE_UNITS,
@@ -269,42 +271,62 @@ def _viscosity_inputs(key_suffix: str) -> float | None:
 def _result_rows(result: DPFlowResult) -> list[dict[str, str]]:
     gas = result.gas_state
     rows = [
-        {"Quantity": "Mass flow", "Value": f"{result.mass_flow_kg_h:.4f}", "Unit": "kg/h"},
-        {"Quantity": "Actual volume flow", "Value": f"{result.volume_flow_m3_h:.4f}", "Unit": "m³/h"},
-        {"Quantity": "Standard volume flow", "Value": f"{result.std_volume_flow_sm3_h:.3f}", "Unit": "Sm³/h"},
-        {"Quantity": "Standard volume flow", "Value": f"{result.std_volume_flow_sm3_d:.2f}", "Unit": "Sm³/d"},
-        {"Quantity": "Pipe velocity", "Value": f"{result.velocity_m_s:.4f}", "Unit": "m/s"},
-        {"Quantity": "Beta", "Value": f"{result.beta:.6f}", "Unit": "-"},
+        {"Quantity": "Mass flow", "Value": format_value(result.mass_flow_kg_h), "Unit": "kg/h"},
+        {"Quantity": "Actual volume flow", "Value": format_value(result.volume_flow_m3_h), "Unit": "m³/h"},
+        {
+            "Quantity": f"Standard volume flow at {STANDARD_CONDITIONS_LABEL}",
+            "Value": format_value(result.std_volume_flow_sm3_h),
+            "Unit": "Sm³/h",
+        },
+        {
+            "Quantity": f"Standard volume flow at {STANDARD_CONDITIONS_LABEL}",
+            "Value": format_value(result.std_volume_flow_sm3_d),
+            "Unit": "Sm³/d",
+        },
+        {"Quantity": "Pipe velocity", "Value": format_value(result.velocity_m_s), "Unit": "m/s"},
+        {"Quantity": "Beta", "Value": format_value(result.beta), "Unit": "-"},
         {
             "Quantity": f"Discharge coefficient C ({result.discharge_coefficient_source})",
-            "Value": f"{result.discharge_coefficient:.6f}",
+            "Value": format_value(result.discharge_coefficient),
             "Unit": "-",
         },
         {
             "Quantity": f"Expansibility ε ({result.expansibility_source})",
-            "Value": f"{result.expansibility:.6f}",
+            "Value": format_value(result.expansibility),
             "Unit": "-",
         },
         {
             "Quantity": "Reynolds number",
-            "Value": "n/a" if result.reynolds_number is None else f"{result.reynolds_number:.4e}",
+            "Value": format_value(result.reynolds_number),
             "Unit": "-",
         },
-        {"Quantity": "Differential pressure", "Value": f"{result.differential_pressure_mbar:.4f}", "Unit": "mbar"},
-        {"Quantity": "Pressure ratio p₂/p₁", "Value": f"{result.pressure_ratio:.6f}", "Unit": "-"},
-        {"Quantity": f"Upstream density ρ₁ ({gas.equation})", "Value": f"{gas.density_kg_m3:.5f}", "Unit": "kg/m³"},
-        {"Quantity": "Standard density", "Value": f"{gas.standard_density_kg_sm3:.6f}", "Unit": "kg/Sm³"},
-        {"Quantity": "Isentropic exponent κ", "Value": f"{gas.kappa:.6f}", "Unit": "-"},
-        {"Quantity": "Compressibility factor Z", "Value": f"{gas.z:.6f}", "Unit": "-"},
-        {"Quantity": "Molar mass", "Value": f"{gas.molar_mass_g_mol:.4f}", "Unit": "g/mol"},
-        {"Quantity": "Speed of sound", "Value": f"{gas.speed_of_sound_m_s:.3f}", "Unit": "m/s"},
+        {
+            "Quantity": "Differential pressure",
+            "Value": format_value(result.differential_pressure_mbar),
+            "Unit": "mbar",
+        },
+        {"Quantity": "Pressure ratio p₂/p₁", "Value": format_value(result.pressure_ratio), "Unit": "-"},
+        {
+            "Quantity": f"Upstream density ρ₁ ({gas.equation})",
+            "Value": format_value(gas.density_kg_m3),
+            "Unit": "kg/m³",
+        },
+        {
+            "Quantity": f"Standard density at {STANDARD_CONDITIONS_LABEL}",
+            "Value": format_value(gas.standard_density_kg_sm3),
+            "Unit": "kg/Sm³",
+        },
+        {"Quantity": "Isentropic exponent κ", "Value": format_value(gas.kappa), "Unit": "-"},
+        {"Quantity": "Compressibility factor Z", "Value": format_value(gas.z), "Unit": "-"},
+        {"Quantity": "Molar mass", "Value": format_value(gas.molar_mass_g_mol), "Unit": "g/mol"},
+        {"Quantity": "Speed of sound", "Value": format_value(gas.speed_of_sound_m_s), "Unit": "m/s"},
         {
             "Quantity": f"Dynamic viscosity μ ({gas.viscosity_source})",
-            "Value": "n/a" if gas.viscosity_pa_s is None else f"{gas.viscosity_pa_s:.6e}",
+            "Value": format_value(gas.viscosity_pa_s),
             "Unit": "Pa·s",
         },
-        {"Quantity": "Upstream pressure p₁", "Value": f"{gas.pressure_bara:.5f}", "Unit": "bara"},
-        {"Quantity": "Upstream temperature T₁", "Value": f"{gas.temperature_c:.4f}", "Unit": "°C"},
+        {"Quantity": "Upstream pressure p₁", "Value": format_value(gas.pressure_bara), "Unit": "bara"},
+        {"Quantity": "Upstream temperature T₁", "Value": format_value(gas.temperature_c), "Unit": "°C"},
     ]
     return rows
 
@@ -372,10 +394,14 @@ def _render_single_point(
         return
 
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Mass flow [kg/h]", f"{result.mass_flow_kg_h:,.1f}")
-    m2.metric("Standard volume [Sm³/h]", f"{result.std_volume_flow_sm3_h:,.1f}")
-    m3.metric("Standard volume [Sm³/d]", f"{result.std_volume_flow_sm3_d:,.0f}")
-    m4.metric("Pipe velocity [m/s]", f"{result.velocity_m_s:,.3f}")
+    m1.metric("Mass flow [kg/h]", format_value(result.mass_flow_kg_h))
+    m2.metric("Actual volume flow [m³/h]", format_value(result.volume_flow_m3_h))
+    m3.metric(
+        "Standard volume [Sm³/h]",
+        format_value(result.std_volume_flow_sm3_h),
+        help=f"Standard conditions: {STANDARD_CONDITIONS_LABEL}.",
+    )
+    m4.metric("Pipe velocity [m/s]", format_value(result.velocity_m_s))
 
     _render_warnings(result)
 
@@ -593,9 +619,13 @@ def _render_sizing(
         return
 
     m1, m2, m3 = st.columns(3)
-    m1.metric("Required Δp [mbar]", f"{result.differential_pressure_mbar:,.2f}")
-    m2.metric("Standard volume [Sm³/h]", f"{result.std_volume_flow_sm3_h:,.1f}")
-    m3.metric("Pipe velocity [m/s]", f"{result.velocity_m_s:,.3f}")
+    m1.metric("Required Δp [mbar]", format_value(result.differential_pressure_mbar))
+    m2.metric(
+        "Standard volume [Sm³/h]",
+        format_value(result.std_volume_flow_sm3_h),
+        help=f"Standard conditions: {STANDARD_CONDITIONS_LABEL}.",
+    )
+    m3.metric("Pipe velocity [m/s]", format_value(result.velocity_m_s))
 
     _render_warnings(result)
     st.dataframe(pd.DataFrame(_result_rows(result)), width="stretch", hide_index=True)

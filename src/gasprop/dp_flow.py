@@ -35,9 +35,16 @@ METER_TYPES: tuple[MeterType, ...] = ("Venturi", "Orifice", "V-cone")
 #: Tapping types supported by the ISO 5167-2 Reader-Harris/Gallagher equation.
 ORIFICE_TAPPINGS: tuple[str, ...] = ("corner", "flange", "D", "D/2")
 
-#: Reference conditions for standard volume flow (Sm3): 1.01325 bara and 15 degC.
+#: Reference conditions for standard volume flow (Sm3): 1.01325 bara and 15 degC,
+#: i.e. the ISO 13443 / ISO 5024 metric standard reference conditions.
 STANDARD_PRESSURE_BARA = 1.01325
 STANDARD_TEMPERATURE_C = 15.0
+
+#: Human-readable description of the Sm3 reference state, shown wherever a standard
+#: volume flow is reported so the basis is never ambiguous.
+STANDARD_CONDITIONS_LABEL = (
+    f"{STANDARD_PRESSURE_BARA:g} bara, {STANDARD_TEMPERATURE_C:g} °C (ISO 13443)"
+)
 
 #: ISO 5167-4:2022 default discharge coefficient for an "as cast" Venturi tube.
 DEFAULT_C_VENTURI = 0.984
