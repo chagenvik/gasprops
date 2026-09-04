@@ -7,6 +7,8 @@ flow using AGA8 densities, with configurable standard conditions and time basis.
 
 from __future__ import annotations
 
+import math
+
 import pandas as pd
 import streamlit as st
 
@@ -21,6 +23,11 @@ from ..flow_converter import (
     FlowConversionResult,
     StandardConditions,
     convert_flow,
+)
+from ..operating_conditions import (
+    aga8_equation_input,
+    pressure_input,
+    temperature_input,
 )
 
 CUSTOM_PRESET = "Custom"
@@ -61,22 +68,51 @@ def _standard_condition_inputs() -> StandardConditions:
     return StandardConditions(pressure_bara=float(pressure), temperature_c=float(temperature))
 
 
-def _result_table(result: FlowConversionResult, mass_unit: str) -> pd.DataFrame:
-    """Full matrix of every quantity on every supported time basis."""
+def _format_number(value: float) -> str:
+    """Format an engineering quantity with a readable, magnitude-dependent precision.
+
+    Flow rates in this tab span many orders of magnitude (m³/s up to Sm³/d), so a fixed
+    number of decimals is either noise or a loss of resolution. Roughly six significant
+    digits are kept without printing meaningless trailing decimals on large numbers.
+    """
+    if value is None or not math.isfinite(value):
+        return "–"
+    magnitude = abs(value)
+    if magnitude == 0.0:
+        return "0"
+    if magnitude >= 100_000.0:
+        return f"{value:,.0f}"
+    if magnitude >= 1_000.0:
+        return f"{value:,.1f}"
+    if magnitude >= 1.0:
+        return f"{value:,.3f}"
+    if magnitude >= 0.001:
+        return f"{value:.5f}"
+    return f"{value:.4e}"
+
+
+def _result_frame(result: FlowConversionResult, mass_unit: str) -> pd.DataFrame:
+    """Quantities as rows and time bases as columns.
+
+    The time basis lives in the column header rather than in each cell's unit, so every
+    column holds the same quantity and the frame has no gaps. Reading a cell as
+    "<row label> <column label>" gives the full unit, e.g. "Mass flow [kg]" + "Per hour".
+    """
     mass_scale = MASS_UNIT_KG[mass_unit]
-    rows: list[dict[str, object]] = []
+    columns: dict[str, list[float]] = {}
     for time_unit in _TIME_UNIT_ORDER:
         mass, actual, standard = result.in_time_unit(time_unit)
-        suffix = _unit_suffix(time_unit)
-        rows.append(
-            {
-                "Basis": TIME_UNIT_LABELS[time_unit].capitalize(),
-                f"Mass flow [{mass_unit}/{suffix}]": mass / mass_scale,
-                f"Actual volume flow [m³/{suffix}]": actual,
-                f"Standard volume flow [Sm³/{suffix}]": standard,
-            }
-        )
-    return pd.DataFrame(rows)
+        columns[TIME_UNIT_LABELS[time_unit].capitalize()] = [
+            mass / mass_scale,
+            actual,
+            standard,
+        ]
+    index = [
+        f"Mass flow [{mass_unit}]",
+        "Actual volume flow [m³]",
+        "Standard volume flow [Sm³]",
+    ]
+    return pd.DataFrame(columns, index=index)
 
 
 def _property_rows(result: FlowConversionResult) -> list[dict[str, str]]:
@@ -84,21 +120,21 @@ def _property_rows(result: FlowConversionResult) -> list[dict[str, str]]:
     return [
         {
             "Quantity": f"Actual density ρ ({result.equation})",
-            "Value": f"{result.actual_density_kg_m3:.6f}",
+            "Value": f"{result.actual_density_kg_m3:,.4f}",
             "Unit": "kg/m³",
         },
         {
             "Quantity": f"Standard density ρ_std ({std.label})",
-            "Value": f"{result.standard_density_kg_sm3:.6f}",
+            "Value": f"{result.standard_density_kg_sm3:,.5f}",
             "Unit": "kg/Sm³",
         },
         {
             "Quantity": "Volume ratio (actual → standard)",
-            "Value": f"{result.formation_volume_ratio:.6f}",
+            "Value": f"{result.formation_volume_ratio:,.3f}",
             "Unit": "Sm³/m³",
         },
-        {"Quantity": "Pressure", "Value": f"{result.pressure_bara:.5f}", "Unit": "bara"},
-        {"Quantity": "Temperature", "Value": f"{result.temperature_c:.4f}", "Unit": "°C"},
+        {"Quantity": "Pressure", "Value": f"{result.pressure_bara:,.3f}", "Unit": "bara"},
+        {"Quantity": "Temperature", "Value": f"{result.temperature_c:,.2f}", "Unit": "°C"},
     ]
 
 
@@ -125,7 +161,7 @@ def render(composition: dict | None) -> None:
     )
     value = c2.number_input(
         "Flow rate",
-        min_value=0.0, max_value=1e15, value=100000.0, step=100.0, format="%.6f",
+        min_value=0.0, max_value=1e15, value=100000.0, step=100.0, format="%.2f",
         key="fc_value",
     )
     time_unit = c3.selectbox(
@@ -152,34 +188,16 @@ def render(composition: dict | None) -> None:
         "actual_volume": f"m³/{_unit_suffix(time_unit)}",
         "standard_volume": f"Sm³/{_unit_suffix(time_unit)}",
     }[basis]
-    st.caption(f"Input is interpreted as **{value:,.6g} {unit_hint}**.")
+    st.caption(f"Input is interpreted as **{_format_number(float(value))} {unit_hint}**.")
 
     st.markdown("#### Actual (line) conditions")
-    c4, c5, c6 = st.columns(3)
-    equation = c4.selectbox(
-        "AGA8 equation", ["GERG-2008", "DETAIL"], index=0, key="fc_eos",
-        help="GERG-2008 is recommended for natural gas mixtures.",
+    pressure, pressure_unit = pressure_input(
+        value_key="fc_pressure", unit_key="fc_p_unit", value=60.0,
     )
-    pressure_unit = c5.selectbox(
-        "Pressure unit", ["bara", "barg", "kPa", "MPa"], index=0, key="fc_p_unit"
+    temperature, temperature_unit, _ = temperature_input(
+        value_key="fc_temperature", unit_key="fc_t_unit", value=20.0,
     )
-    temperature_unit = c6.selectbox(
-        "Temperature unit", ["C", "K"], index=0, key="fc_t_unit",
-        format_func=lambda x: "°C" if x == "C" else "K",
-    )
-
-    c7, c8 = st.columns(2)
-    pressure = c7.number_input(
-        f"Pressure [{pressure_unit}]",
-        min_value=0.0, max_value=1000.0, value=60.0, step=0.1, format="%.4f",
-        key="fc_pressure",
-    )
-    temperature = c8.number_input(
-        f"Temperature [{'°C' if temperature_unit == 'C' else 'K'}]",
-        min_value=-273.15 if temperature_unit == "C" else 0.0,
-        max_value=2000.0, value=20.0, step=0.5, format="%.3f",
-        key="fc_temperature",
-    )
+    equation = aga8_equation_input(key="fc_eos")
 
     st.markdown("#### Standard conditions")
     standard_conditions = _standard_condition_inputs()
@@ -213,25 +231,23 @@ def render(composition: dict | None) -> None:
     m1, m2, m3 = st.columns(3)
     m1.metric(
         f"Mass flow [{mass_unit}/{suffix}]",
-        f"{mass / MASS_UNIT_KG[mass_unit]:,.4f}",
+        _format_number(mass / MASS_UNIT_KG[mass_unit]),
     )
-    m2.metric(f"Actual volume flow [m³/{suffix}]", f"{actual:,.4f}")
-    m3.metric(f"Standard volume flow [Sm³/{suffix}]", f"{standard:,.4f}")
+    m2.metric(f"Actual volume flow [m³/{suffix}]", _format_number(actual))
+    m3.metric(f"Standard volume flow [Sm³/{suffix}]", _format_number(standard))
 
     st.markdown("##### All time bases")
-    table = _result_table(result, mass_unit)
-    st.dataframe(
-        table.style.format({col: "{:,.6g}" for col in table.columns if col != "Basis"}),
-        width="stretch",
-        hide_index=True,
-    )
+    frame = _result_frame(result, mass_unit)
+    display = frame.map(_format_number).reset_index(names="Quantity")
+    st.dataframe(display, width="stretch", hide_index=True)
 
     st.markdown("##### Densities used")
     st.dataframe(pd.DataFrame(_property_rows(result)), width="stretch", hide_index=True)
 
     st.download_button(
         "Download results (CSV)",
-        data=table.to_csv(index=False).encode(),
+        # The CSV keeps full precision; only the on-screen table is rounded for readability.
+        data=frame.to_csv(index_label="Quantity").encode(),
         file_name=f"flow_conversion_{pressure:.4g}{pressure_unit}_{temperature:.4g}{temperature_unit}.csv",
         mime="text/csv",
         key="fc_dl",

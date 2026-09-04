@@ -21,6 +21,12 @@ import streamlit as st
 from uncertaintylib import uncertainty_functions as uf
 from uncertaintylib.uncertainty_models import gas_composition as gc_models
 
+from ..operating_conditions import (
+    aga8_equation_input,
+    pressure_input,
+    temperature_input,
+)
+
 PROPERTIES = {
     "rho":   ("Mass Density",              "kg/m³",        "{:.5f}"),
     "z":     ("Compressibility Factor",    "–",            "{:.6f}"),
@@ -318,22 +324,11 @@ def render(composition: dict | None) -> None:
         return
 
     st.markdown("#### Operating Conditions")
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        equation = st.selectbox("AGA8 equation", ["GERG-2008", "DETAIL"], index=0, key="unc_eos")
-    with c2:
-        p_unit = st.selectbox("Pressure unit", ["bara", "barg", "kPa", "MPa"], index=0, key="unc_p_unit")
-    with c3:
-        t_unit = st.selectbox("Temperature unit", ["C", "K"], index=0, key="unc_t_unit",
-                              format_func=lambda x: "°C" if x == "C" else "K")
-
-    t_label = "°C" if t_unit == "C" else "K"
-    t_floor = -273.15 if t_unit == "C" else 0.0
-
     col_p, col_t = st.columns(2)
     with col_p:
-        p_mean = st.number_input(f"Pressure [{p_unit}]", min_value=0.0, value=100.0, step=0.1,
-                                 format="%.3f", key="unc_p_mean")
+        p_mean, p_unit = pressure_input(
+            value_key="unc_p_mean", unit_key="unc_p_unit", value=100.0,
+        )
         p_abs = st.number_input(f"Abs. std uncertainty [{p_unit}]", min_value=0.0, value=0.0,
                                 step=0.001, format="%.4f", key="unc_p_abs",
                                 help="Standard uncertainty (1σ) in pressure, absolute.")
@@ -341,14 +336,17 @@ def render(composition: dict | None) -> None:
                                 step=0.01, format="%.3f", key="unc_p_rel",
                                 help="Standard uncertainty (1σ) in pressure, as % of value.")
     with col_t:
-        temperature = st.number_input(f"Temperature [{t_label}]", min_value=t_floor, value=60.0,
-                                      step=0.5, format="%.2f", key="unc_t_mean")
+        temperature, t_unit, t_label = temperature_input(
+            value_key="unc_t_mean", unit_key="unc_t_unit", value=60.0,
+        )
         t_abs = st.number_input(f"Abs. std uncertainty [{t_label}]", min_value=0.0, value=0.15,
                                 step=0.001, format="%.4f", key="unc_t_abs",
                                 help="Standard uncertainty (1σ) in temperature, absolute.")
         t_rel = st.number_input("Rel. std uncertainty temperature [%]", min_value=0.0, value=0.0,
                                 step=0.01, format="%.3f", key="unc_t_rel",
                                 help="Standard uncertainty (1σ) in temperature, as % of value.")
+
+    equation = aga8_equation_input(key="unc_eos")
 
     st.markdown("#### Properties to Analyse")
     prop_options = list(PROPERTIES.keys())

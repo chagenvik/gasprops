@@ -303,3 +303,79 @@ def test_every_flow_basis_has_a_label():
 def test_every_time_unit_has_a_label():
     for unit in fc.TIME_UNIT_SECONDS:
         assert unit in fc.TIME_UNIT_LABELS
+
+
+# ── Result table ──────────────────────────────────────────────────────────────
+def test_result_frame_has_no_missing_values():
+    # Regression guard: the table used to build one dict per time basis with the time
+    # suffix baked into each column name, so pandas unioned nine columns and filled the
+    # mismatched cells with NaN, which Streamlit rendered as "None".
+    result = _convert()
+    frame = flow_converter_view._result_frame(result, "kg")
+
+    assert not frame.isna().to_numpy().any()
+
+
+def test_result_frame_is_quantities_by_time_basis():
+    result = _convert()
+    frame = flow_converter_view._result_frame(result, "kg")
+
+    assert list(frame.columns) == ["Per second", "Per hour", "Per day"]
+    assert list(frame.index) == [
+        "Mass flow [kg]",
+        "Actual volume flow [m³]",
+        "Standard volume flow [Sm³]",
+    ]
+
+
+def test_result_frame_columns_scale_by_the_time_factors():
+    result = _convert()
+    frame = flow_converter_view._result_frame(result, "kg")
+
+    for quantity in frame.index:
+        per_second = frame.loc[quantity, "Per second"]
+        assert frame.loc[quantity, "Per hour"] == pytest.approx(per_second * 3600.0)
+        assert frame.loc[quantity, "Per day"] == pytest.approx(per_second * 86400.0)
+
+
+def test_result_frame_row_label_follows_the_mass_unit():
+    result = _convert()
+    assert flow_converter_view._result_frame(result, "t").index[0] == "Mass flow [t]"
+
+
+def test_result_frame_mass_row_is_scaled_to_tonnes():
+    result = _convert()
+    in_kg = flow_converter_view._result_frame(result, "kg")
+    in_tonnes = flow_converter_view._result_frame(result, "t")
+
+    assert in_tonnes.loc["Mass flow [t]", "Per hour"] == pytest.approx(
+        in_kg.loc["Mass flow [kg]", "Per hour"] / 1000.0
+    )
+
+
+# ── Number formatting ─────────────────────────────────────────────────────────
+def test_large_numbers_are_formatted_without_decimal_noise():
+    assert flow_converter_view._format_number(3_186_883.4821) == "3,186,883"
+    assert flow_converter_view._format_number(132_786.7869) == "132,787"
+
+
+def test_mid_range_numbers_keep_one_decimal():
+    assert flow_converter_view._format_number(2_000.0) == "2,000.0"
+
+
+def test_small_numbers_keep_useful_resolution():
+    assert flow_converter_view._format_number(27.7555) == "27.756"
+    assert flow_converter_view._format_number(0.555556) == "0.55556"
+
+
+def test_very_small_numbers_fall_back_to_scientific_notation():
+    assert flow_converter_view._format_number(1.2345e-6) == "1.2345e-06"
+
+
+def test_zero_formats_as_a_bare_zero():
+    assert flow_converter_view._format_number(0.0) == "0"
+
+
+def test_non_finite_numbers_format_as_a_dash():
+    assert flow_converter_view._format_number(float("nan")) == "–"
+    assert flow_converter_view._format_number(float("inf")) == "–"

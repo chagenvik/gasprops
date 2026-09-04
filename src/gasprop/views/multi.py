@@ -11,6 +11,13 @@ import plotly.express as px
 import pvtlib
 import streamlit as st
 
+from ..operating_conditions import (
+    PRESSURE_UNITS,
+    TEMPERATURE_UNITS,
+    aga8_equation_input,
+    temperature_label,
+)
+
 PROPERTIES = {
     "rho":   ("Mass Density",              "kg/m³"),
     "w":     ("Speed of Sound",            "m/s"),
@@ -135,19 +142,16 @@ def render(composition: dict | None) -> None:
         return
 
     # ── Settings ───────────────────────────────────────────────────────────────
-    c1, c2, c3 = st.columns(3)
-    equation = c1.selectbox(
-        "AGA8 equation", ["GERG-2008", "DETAIL"], index=0, key="multi_eos",
-        help="GERG-2008 is recommended for natural gas mixtures.",
+    c1, c2 = st.columns(2)
+    pressure_unit = c1.selectbox(
+        "Pressure unit", list(PRESSURE_UNITS), index=0, key="multi_p_unit",
     )
-    pressure_unit = c2.selectbox(
-        "Pressure unit", ["bara", "barg", "kPa", "MPa"], index=0, key="multi_p_unit",
+    temperature_unit = c2.selectbox(
+        "Temperature unit", list(TEMPERATURE_UNITS), index=0, key="multi_t_unit",
+        format_func=temperature_label,
     )
-    temperature_unit = c3.selectbox(
-        "Temperature unit", ["C", "K"], index=0, key="multi_t_unit",
-        format_func=lambda x: "°C" if x == "C" else "K",
-    )
-    temp_label = "°C" if temperature_unit == "C" else "K"
+    equation = aga8_equation_input(key="multi_eos")
+    temp_label = temperature_label(temperature_unit)
 
     mode = st.radio(
         "Input mode",

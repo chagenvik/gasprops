@@ -36,6 +36,14 @@ from ..dp_flow import (
     solve_dp_for_mass_flow,
     solve_dp_for_std_volume_flow,
 )
+from ..operating_conditions import (
+    PRESSURE_UNITS,
+    TEMPERATURE_UNITS,
+    aga8_equation_input,
+    pressure_input,
+    temperature_input,
+    temperature_label,
+)
 
 _DIAGRAM_DIR = Path(__file__).resolve().parents[3] / "assets" / "dp_meters"
 
@@ -219,20 +227,20 @@ def _coefficient_inputs(meter_type: str) -> tuple[float | None, float | None]:
     return discharge_coefficient, expansibility
 
 
-def _process_inputs(key_suffix: str) -> tuple[str, str, str]:
-    """Render pressure/temperature unit and AGA8 equation inputs."""
-    c1, c2, c3 = st.columns(3)
-    equation = c1.selectbox(
-        "AGA8 equation", ["GERG-2008", "DETAIL"], index=0, key=f"dpf_eos_{key_suffix}",
-        help="GERG-2008 is recommended for natural gas mixtures.",
+def _unit_inputs(key_suffix: str) -> tuple[str, str, str]:
+    """Render the unit selectors for a tab whose P/T values come from a table.
+
+    The AGA8 equation is rendered last, matching the ordering used everywhere else.
+    """
+    c1, c2 = st.columns(2)
+    pressure_unit = c1.selectbox(
+        "Pressure unit", list(PRESSURE_UNITS), index=0, key=f"dpf_p_unit_{key_suffix}"
     )
-    pressure_unit = c2.selectbox(
-        "Pressure unit", ["bara", "barg", "kPa", "MPa"], index=0, key=f"dpf_p_unit_{key_suffix}"
+    temperature_unit = c2.selectbox(
+        "Temperature unit", list(TEMPERATURE_UNITS), index=0, key=f"dpf_t_unit_{key_suffix}",
+        format_func=temperature_label,
     )
-    temperature_unit = c3.selectbox(
-        "Temperature unit", ["C", "K"], index=0, key=f"dpf_t_unit_{key_suffix}",
-        format_func=lambda x: "°C" if x == "C" else "K",
-    )
+    equation = aga8_equation_input(key=f"dpf_eos_{key_suffix}")
     return equation, pressure_unit, temperature_unit
 
 
@@ -318,23 +326,19 @@ def _render_single_point(
     expansibility: float | None,
 ) -> None:
     st.markdown("#### Operating conditions")
-    equation, pressure_unit, temperature_unit = _process_inputs("single")
+    pressure, pressure_unit = pressure_input(
+        value_key="dpf_pressure_single", unit_key="dpf_p_unit_single",
+        label="Upstream pressure p₁", value=60.0,
+    )
+    temperature, temperature_unit, _ = temperature_input(
+        value_key="dpf_temperature_single", unit_key="dpf_t_unit_single",
+        label="Temperature T₁", value=20.0,
+    )
+    equation = aga8_equation_input(key="dpf_eos_single")
 
-    c1, c2, c3 = st.columns(3)
-    pressure = c1.number_input(
-        f"Upstream pressure p₁ [{pressure_unit}]",
-        min_value=0.0, max_value=1000.0, value=60.0, step=0.1, format="%.4f",
-        key="dpf_pressure_single",
-    )
-    temperature = c2.number_input(
-        f"Temperature T₁ [{'°C' if temperature_unit == 'C' else 'K'}]",
-        min_value=-273.15 if temperature_unit == "C" else 0.0,
-        max_value=2000.0, value=20.0, step=0.5, format="%.3f",
-        key="dpf_temperature_single",
-    )
-    dp_mbar = c3.number_input(
+    dp_mbar = st.number_input(
         "Differential pressure Δp [mbar]",
-        min_value=0.0, max_value=1_000_000.0, value=500.0, step=1.0, format="%.4f",
+        min_value=0.0, max_value=1_000_000.0, value=500.0, step=1.0, format="%.2f",
         key="dpf_dp_single",
     )
 
@@ -397,7 +401,7 @@ def _render_multi_point(
     expansibility: float | None,
 ) -> None:
     st.markdown("#### Operating points")
-    equation, pressure_unit, temperature_unit = _process_inputs("multi")
+    equation, pressure_unit, temperature_unit = _unit_inputs("multi")
     viscosity = _viscosity_inputs("multi")
 
     points = st.data_editor(
@@ -521,20 +525,15 @@ def _render_sizing(
     )
 
     st.markdown("#### Operating conditions")
-    equation, pressure_unit, temperature_unit = _process_inputs("sizing")
-
-    c1, c2 = st.columns(2)
-    pressure = c1.number_input(
-        f"Upstream pressure p₁ [{pressure_unit}]",
-        min_value=0.0, max_value=1000.0, value=60.0, step=0.1, format="%.4f",
-        key="dpf_pressure_sizing",
+    pressure, pressure_unit = pressure_input(
+        value_key="dpf_pressure_sizing", unit_key="dpf_p_unit_sizing",
+        label="Upstream pressure p₁", value=60.0,
     )
-    temperature = c2.number_input(
-        f"Temperature T₁ [{'°C' if temperature_unit == 'C' else 'K'}]",
-        min_value=-273.15 if temperature_unit == "C" else 0.0,
-        max_value=2000.0, value=20.0, step=0.5, format="%.3f",
-        key="dpf_temperature_sizing",
+    temperature, temperature_unit, _ = temperature_input(
+        value_key="dpf_temperature_sizing", unit_key="dpf_t_unit_sizing",
+        label="Temperature T₁", value=20.0,
     )
+    equation = aga8_equation_input(key="dpf_eos_sizing")
 
     st.markdown("#### Target flow rate")
     c3, c4, c5 = st.columns(3)
