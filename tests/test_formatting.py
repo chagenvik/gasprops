@@ -5,7 +5,13 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from gasprop.formatting import NOT_AVAILABLE, format_value
+from gasprop.formatting import (
+    NOT_AVAILABLE,
+    format_fixed,
+    format_flow,
+    format_value,
+    format_velocity,
+)
 
 
 # ── The complaints that motivated this formatter ──────────────────────────────
@@ -106,3 +112,59 @@ def test_integers_are_accepted():
 )
 def test_formatted_values_never_end_with_a_dot(value):
     assert not format_value(value).endswith(".")
+
+
+# ── Flow rates: one decimal, whatever the magnitude ───────────────────────────
+def test_flow_rates_keep_one_decimal_across_magnitudes():
+    assert format_flow(205344.2712) == "205,344.3"
+    assert format_flow(2621.7912) == "2,621.8"
+    assert format_flow(302056.44) == "302,056.4"
+    assert format_flow(7249335.2) == "7,249,335.2"
+
+
+def test_flow_rate_decimal_is_kept_for_round_numbers():
+    # Regression guard: the significant-digit formatter rendered this as "2,000".
+    assert format_flow(2000.0) == "2,000.0"
+
+
+def test_zero_flow_still_shows_the_decimal():
+    assert format_flow(0.0) == "0.0"
+
+
+def test_small_flow_rates_keep_their_resolution_instead_of_rounding_to_zero():
+    assert format_flow(0.0123) == "0.0123"
+    assert format_flow(-0.0123) == "-0.0123"
+
+
+# ── Velocities: two decimals ──────────────────────────────────────────────────
+def test_velocities_keep_two_decimals():
+    assert format_velocity(23.1817) == "23.18"
+    assert format_velocity(7.0) == "7.00"
+    assert format_velocity(1234.5678) == "1,234.57"
+
+
+def test_zero_velocity_shows_two_decimals():
+    assert format_velocity(0.0) == "0.00"
+
+
+def test_small_velocities_keep_their_resolution_instead_of_rounding_to_zero():
+    assert format_velocity(0.0001234) == "0.0001234"
+
+
+# ── Fixed-decimal formatting in general ───────────────────────────────────────
+def test_the_number_of_decimals_is_configurable():
+    assert format_fixed(23.1817, 0) == "23"
+    assert format_fixed(23.1817, 3) == "23.182"
+
+
+def test_negative_values_never_render_as_a_signed_zero():
+    assert format_fixed(-0.0, 1) == "0.0"
+
+
+def test_fixed_formatting_of_missing_and_non_finite_values():
+    assert format_fixed(None, 1) == NOT_AVAILABLE
+    assert format_fixed(float("nan"), 1) == NOT_AVAILABLE
+    assert format_fixed(float("inf"), 2) == NOT_AVAILABLE
+    assert format_fixed("not a number", 1) == NOT_AVAILABLE
+    assert format_flow(None) == NOT_AVAILABLE
+    assert format_velocity(None) == NOT_AVAILABLE

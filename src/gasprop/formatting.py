@@ -6,6 +6,11 @@ coefficient of 0.6 to a Reynolds number of 8.2e6 to millions of Sm3/d. A fixed n
 of decimals is therefore either noise (``0.600000`` for beta) or a loss of resolution.
 :func:`format_value` keeps a roughly constant number of significant digits and drops
 trailing zeros, so every quantity reads naturally without per-call formatting rules.
+
+Flow rates and velocities are the exception: they are read side by side and compared
+between operating points, so they use a fixed number of decimals
+(:func:`format_flow` and :func:`format_velocity`) rather than a fixed number of
+significant digits, which otherwise moves the decimal point between rows.
 """
 
 from __future__ import annotations
@@ -18,6 +23,12 @@ NOT_AVAILABLE = "–"
 #: Above this magnitude, and below its reciprocal-ish counterpart, switch to scientific.
 _SCIENTIFIC_UPPER = 1.0e9
 _SCIENTIFIC_LOWER = 1.0e-4
+
+#: Decimals used for mass, actual volume and standard volume flow rates.
+FLOW_DECIMALS = 1
+
+#: Decimals used for velocities.
+VELOCITY_DECIMALS = 2
 
 
 def format_value(value: float | None, significant: int = 6) -> str:
@@ -61,3 +72,46 @@ def format_value(value: float | None, significant: int = 6) -> str:
     if "." in text:
         text = text.rstrip("0").rstrip(".")
     return text
+
+
+def format_fixed(value: float | None, decimals: int) -> str:
+    """Format a number with a fixed number of decimals and thousands separators.
+
+    Values that would round away to zero keep their significant digits instead, so a
+    small but non-zero rate is never reported as ``0.0``.
+
+    Examples
+    --------
+    >>> format_fixed(205344.27, 1)
+    '205,344.3'
+    >>> format_fixed(23.1817, 2)
+    '23.18'
+    """
+    if value is None:
+        return NOT_AVAILABLE
+
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return NOT_AVAILABLE
+
+    if not math.isfinite(number):
+        return NOT_AVAILABLE
+    if number != 0.0 and round(number, decimals) == 0.0:
+        return format_value(number)
+
+    # -0.0 and values rounding to it would otherwise print a misleading minus sign.
+    if number == 0.0:
+        number = 0.0
+
+    return f"{number:,.{decimals}f}"
+
+
+def format_flow(value: float | None) -> str:
+    """Format a mass, actual volume or standard volume flow rate for display."""
+    return format_fixed(value, FLOW_DECIMALS)
+
+
+def format_velocity(value: float | None) -> str:
+    """Format a velocity for display."""
+    return format_fixed(value, VELOCITY_DECIMALS)

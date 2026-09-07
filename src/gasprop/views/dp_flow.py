@@ -37,7 +37,7 @@ from ..dp_flow import (
     solve_dp_for_mass_flow,
     solve_dp_for_std_volume_flow,
 )
-from ..formatting import format_value
+from ..formatting import format_flow, format_value, format_velocity
 from ..operating_conditions import (
     PRESSURE_UNITS,
     TEMPERATURE_UNITS,
@@ -89,6 +89,16 @@ TARGET_BASES: dict[str, str] = {
     "Standard volume flow [Sm³/h]": "sm3_h",
     "Standard volume flow [Sm³/d]": "sm3_d",
     "Mass flow [kg/h]": "kg_h",
+}
+
+#: Display formats for the multi-point result table, so the flow columns line up on the
+#: decimal point in the same way as the single-point results.
+_MULTI_POINT_COLUMN_FORMATS: dict[str, object] = {
+    "Mass flow [kg/h]": st.column_config.NumberColumn(format="%.1f"),
+    "Actual volume [m³/h]": st.column_config.NumberColumn(format="%.1f"),
+    "Std volume [Sm³/h]": st.column_config.NumberColumn(format="%.1f"),
+    "Std volume [Sm³/d]": st.column_config.NumberColumn(format="%.1f"),
+    "Velocity [m/s]": st.column_config.NumberColumn(format="%.2f"),
 }
 
 
@@ -271,19 +281,19 @@ def _viscosity_inputs(key_suffix: str) -> float | None:
 def _result_rows(result: DPFlowResult) -> list[dict[str, str]]:
     gas = result.gas_state
     rows = [
-        {"Quantity": "Mass flow", "Value": format_value(result.mass_flow_kg_h), "Unit": "kg/h"},
-        {"Quantity": "Actual volume flow", "Value": format_value(result.volume_flow_m3_h), "Unit": "m³/h"},
+        {"Quantity": "Mass flow", "Value": format_flow(result.mass_flow_kg_h), "Unit": "kg/h"},
+        {"Quantity": "Actual volume flow", "Value": format_flow(result.volume_flow_m3_h), "Unit": "m³/h"},
         {
             "Quantity": f"Standard volume flow at {STANDARD_CONDITIONS_LABEL}",
-            "Value": format_value(result.std_volume_flow_sm3_h),
+            "Value": format_flow(result.std_volume_flow_sm3_h),
             "Unit": "Sm³/h",
         },
         {
             "Quantity": f"Standard volume flow at {STANDARD_CONDITIONS_LABEL}",
-            "Value": format_value(result.std_volume_flow_sm3_d),
+            "Value": format_flow(result.std_volume_flow_sm3_d),
             "Unit": "Sm³/d",
         },
-        {"Quantity": "Pipe velocity", "Value": format_value(result.velocity_m_s), "Unit": "m/s"},
+        {"Quantity": "Pipe velocity", "Value": format_velocity(result.velocity_m_s), "Unit": "m/s"},
         {"Quantity": "Beta", "Value": format_value(result.beta), "Unit": "-"},
         {
             "Quantity": f"Discharge coefficient C ({result.discharge_coefficient_source})",
@@ -394,14 +404,14 @@ def _render_single_point(
         return
 
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Mass flow [kg/h]", format_value(result.mass_flow_kg_h))
-    m2.metric("Actual volume flow [m³/h]", format_value(result.volume_flow_m3_h))
+    m1.metric("Mass flow [kg/h]", format_flow(result.mass_flow_kg_h))
+    m2.metric("Actual volume flow [m³/h]", format_flow(result.volume_flow_m3_h))
     m3.metric(
         "Standard volume [Sm³/h]",
-        format_value(result.std_volume_flow_sm3_h),
+        format_flow(result.std_volume_flow_sm3_h),
         help=f"Standard conditions: {STANDARD_CONDITIONS_LABEL}.",
     )
-    m4.metric("Pipe velocity [m/s]", format_value(result.velocity_m_s))
+    m4.metric("Pipe velocity [m/s]", format_velocity(result.velocity_m_s))
 
     _render_warnings(result)
 
@@ -510,7 +520,12 @@ def _render_multi_point(
         return
 
     df = pd.DataFrame(rows)
-    st.dataframe(df, width="stretch", hide_index=True)
+    st.dataframe(
+        df,
+        width="stretch",
+        hide_index=True,
+        column_config=_MULTI_POINT_COLUMN_FORMATS,
+    )
 
     if all_warnings:
         st.warning(
@@ -622,10 +637,10 @@ def _render_sizing(
     m1.metric("Required Δp [mbar]", format_value(result.differential_pressure_mbar))
     m2.metric(
         "Standard volume [Sm³/h]",
-        format_value(result.std_volume_flow_sm3_h),
+        format_flow(result.std_volume_flow_sm3_h),
         help=f"Standard conditions: {STANDARD_CONDITIONS_LABEL}.",
     )
-    m3.metric("Pipe velocity [m/s]", format_value(result.velocity_m_s))
+    m3.metric("Pipe velocity [m/s]", format_velocity(result.velocity_m_s))
 
     _render_warnings(result)
     st.dataframe(pd.DataFrame(_result_rows(result)), width="stretch", hide_index=True)

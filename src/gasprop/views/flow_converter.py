@@ -24,7 +24,7 @@ from ..flow_converter import (
     StandardConditions,
     convert_flow,
 )
-from ..formatting import format_value
+from ..formatting import format_flow, format_value, format_velocity
 from ..operating_conditions import (
     aga8_equation_input,
     pressure_input,
@@ -131,7 +131,7 @@ def _property_rows(result: FlowConversionResult) -> list[dict[str, str]]:
         rows.append(
             {
                 "Quantity": "Pipe velocity at line conditions",
-                "Value": format_value(result.velocity_m_s),
+                "Value": format_velocity(result.velocity_m_s),
                 "Unit": "m/s",
             }
         )
@@ -246,16 +246,16 @@ def render(composition: dict | None) -> None:
     metrics = st.columns(metric_count)
     metrics[0].metric(
         f"Mass flow [{mass_unit}/{suffix}]",
-        _format_number(mass / MASS_UNIT_KG[mass_unit]),
+        format_flow(mass / MASS_UNIT_KG[mass_unit]),
     )
-    metrics[1].metric(f"Actual volume flow [m³/{suffix}]", _format_number(actual))
-    metrics[2].metric(f"Standard volume flow [Sm³/{suffix}]", _format_number(standard))
+    metrics[1].metric(f"Actual volume flow [m³/{suffix}]", format_flow(actual))
+    metrics[2].metric(f"Standard volume flow [Sm³/{suffix}]", format_flow(standard))
     if result.velocity_m_s is not None:
-        metrics[3].metric("Pipe velocity [m/s]", _format_number(result.velocity_m_s))
+        metrics[3].metric("Pipe velocity [m/s]", format_velocity(result.velocity_m_s))
 
     st.markdown("##### All time bases")
     frame = _result_frame(result, mass_unit)
-    display = frame.map(_format_number).reset_index(names="Quantity")
+    display = frame.map(format_flow).reset_index(names="Quantity")
     st.dataframe(display, width="stretch", hide_index=True)
 
     st.markdown("##### Densities used")
