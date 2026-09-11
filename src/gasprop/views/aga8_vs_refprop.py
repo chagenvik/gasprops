@@ -195,12 +195,11 @@ def _create_single_figure(station_id, df, eos_models, y_axis_range, eos_colors) 
                 go.Scatter(
                     x=df["P_bara"],
                     y=df[column_name],
-                    mode="lines+markers",
+                    mode="lines",
                     name=eos_name,
                     legendgroup=eos_name,
                     showlegend=index == 0,
-                    line={"color": trace_map[eos_name]["color"]},
-                    marker={"size": 7},
+                    line={"color": trace_map[eos_name]["color"], "width": 2},
                 ),
                 row=row,
                 col=col,
@@ -218,16 +217,11 @@ def _create_group_figure(results_by_station, eos_models, title_label, y_axis_ran
     figure = make_subplots(rows=2, cols=2, subplot_titles=[m[0] for m in _METRICS])
 
     trace_specs = {
-        "GERG-2008": {
-            "column_index": 1,
-            "line": {"color": eos_colors["GERG-2008"], "dash": "solid"},
-            "marker": {"size": 5},
-        },
-        "DETAIL": {
-            "column_index": 2,
-            "line": {"color": eos_colors["DETAIL"], "dash": "dash"},
-            "marker": {"size": 5, "symbol": "square"},
-        },
+        # Both models are drawn solid and thin: with up to 50 gases per model the
+        # dashes and markers turned the panels into noise, and the colour alone
+        # separates the two models well enough.
+        "GERG-2008": {"color": eos_colors["GERG-2008"], "width": 1.1},
+        "DETAIL": {"color": eos_colors["DETAIL"], "width": 1.1},
     }
 
     for index, (_, gerg_col, detail_col) in enumerate(_METRICS):
@@ -252,12 +246,11 @@ def _create_group_figure(results_by_station, eos_models, title_label, y_axis_ran
                     x=x_values,
                     y=y_values,
                     customdata=gas_ids,
-                    mode="lines+markers",
+                    mode="lines",
                     name=eos_name,
                     legendgroup=eos_name,
                     showlegend=index == 0,
-                    line=trace_specs[eos_name]["line"],
-                    marker=trace_specs[eos_name]["marker"],
+                    line=trace_specs[eos_name],
                     hovertemplate=(
                         "Gas: %{customdata}<br>"
                         f"EOS: {eos_name}<br>"
