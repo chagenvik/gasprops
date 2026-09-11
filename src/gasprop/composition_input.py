@@ -38,8 +38,25 @@ _COMPOSITIONS_DIR = Path(__file__).resolve().parents[2] / "data" / "examples"
 
 #: Decimal places offered for the mol% column. Display only — the stored values
 #: keep full precision, so a trace component shown as 0.00 is still exact.
-MOL_DECIMAL_OPTIONS = [0, 1, 2, 3, 4, 5, 6]
+MIN_MOL_DECIMALS = 0
+MAX_MOL_DECIMALS = 6
 DEFAULT_MOL_DECIMALS = 2
+
+
+def _mol_decimals_input(container, decimals_key: str) -> None:
+    """Render the mol% decimal stepper. Used next to the table's action buttons."""
+    container.number_input(
+        "Decimals",
+        min_value=MIN_MOL_DECIMALS,
+        max_value=MAX_MOL_DECIMALS,
+        step=1,
+        key=decimals_key,
+        help=(
+            "Decimal places shown in the table. Display only — values are stored and "
+            "calculated at full precision, so trace components below the shown "
+            "resolution are still exact."
+        ),
+    )
 
 STD_COMPONENTS: dict[str, str] = {
     "N2":   "Nitrogen",
@@ -568,9 +585,11 @@ def composition_input(key_prefix: str = "comp") -> dict | None:
     # build the column format above it. Reading session state first lets the widget
     # sit where it belongs in the layout.
     decimals_key = f"{key_prefix}_mol_decimals"
-    # 0 is a valid choice, so test for None rather than relying on truthiness.
-    stored_decimals = st.session_state.get(decimals_key)
-    decimals = DEFAULT_MOL_DECIMALS if stored_decimals is None else int(stored_decimals)
+    # number_input owns this key, so seed it once instead of passing a value that
+    # would collide with the stored widget state on later reruns.
+    if decimals_key not in st.session_state:
+        st.session_state[decimals_key] = DEFAULT_MOL_DECIMALS
+    decimals = int(st.session_state[decimals_key])
 
     # Pre-read accumulated edit deltas to get an early draft of values (used for
     # button enable/disable logic below).  The returned DataFrame from
@@ -603,17 +622,6 @@ def composition_input(key_prefix: str = "comp") -> dict | None:
         num_rows="fixed",
     )
 
-    st.segmented_control(
-        "Decimals shown",
-        MOL_DECIMAL_OPTIONS,
-        default=decimals,
-        key=decimals_key,
-        help=(
-            "Display only. Values are always stored and calculated at full precision, "
-            "so trace components stay intact even when shown as 0."
-        ),
-    )
-
     if not is_example_source:
         # Use the returned DataFrame as the authoritative value source.
         # It reflects both normal cell edits (via delta overlay) and paste
@@ -622,7 +630,7 @@ def composition_input(key_prefix: str = "comp") -> dict | None:
         st.session_state[k] = values
 
 
-        action_cols = st.columns(3)
+        action_cols = st.columns(4)
         if action_cols[0].button("Set to zero", key=f"{key_prefix}_set_zero", help="Set all mole-percent values to zero"):
             _set_zero_composition_values(key_prefix)
             st.rerun()
@@ -659,8 +667,11 @@ def composition_input(key_prefix: str = "comp") -> dict | None:
         ):
             _distribute_c6_plus_composition_values(key_prefix, values)
             st.rerun()
+        _mol_decimals_input(action_cols[3], decimals_key)
     else:
-        st.caption("Example compositions are shown read-only.")
+        caption_col, decimals_col = st.columns([3, 1])
+        caption_col.caption("Example compositions are shown read-only.")
+        _mol_decimals_input(decimals_col, decimals_key)
 
     total = sum(values.values())
     if total == 0.0:
