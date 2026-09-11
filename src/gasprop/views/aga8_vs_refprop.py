@@ -438,70 +438,40 @@ def render(composition: dict | None) -> None:
     st.subheader("AGA8 vs REFPROP — results from Global Flow Measurement Workshop 2026 paper")
     st.markdown(
         """
-The results in this tab originate from the paper **"Uncertainty in Calculated Gas Properties
-Outside Pipeline Quality Natural Gas"**, presented at the **Global Flow Measurement Workshop (GFMW)
-2026**.
+**All results shown in this tab are taken from the paper "Uncertainty in Calculated Gas Properties
+Outside Pipeline Quality Natural Gas", presented at the Global Flow Measurement Workshop (GFMW)
+2026.**
 
-This tab shows pre-computed comparisons for 50 anonymized gas metering stations connected to
-the Norwegian gas grid (`gasmet_01`–`gasmet_50`) and three anonymized K-lab gases
-(`klab_gas_01`–`klab_gas_03`). In the source data for the gas metering stations, gas
-compositions were measured up to **C6+**. For the calculations shown here, the reported C6+
-fraction was distributed into **nC6–nC10** using a fixed split: **nC6 50.0%, nC7 30.0%,
-nC8 12.5%, nC9 5.0%, and nC10 2.5%**.
-
-In addition, three K-lab gases are included in the results. The K-lab gases originate from the gas metering station at the K-lab VGII multiphase flow loop,
-as presented in the paper. They typically contain higher C5+ content than most of the
-`gasmet` gases, and might be more representative of gases found closer to the wells, for example at
-first-stage and test separators. To include the K-lab gases in the plots, check the **Include K-lab gases** checkbox.
-
-For each composition, AGA8 DETAIL and AGA8 GERG-2008 properties were calculated with `pvtlib` and
-compared against REFPROP reference results obtained through `ctREFPROP`. REFPROP requires a
-separate license and is not run in this app.
-
-Cricondentherm values were calculated with NeqSim, and each pressure sweep was evaluated from
-10 to 300 bara at `max(cricondentherm + 10 °C, 10 °C)`. The plots show relative deviation from
-REFPROP in percent.
+They are pre-computed comparisons of AGA8 DETAIL and GERG-2008 against REFPROP for 50 anonymized
+gas metering stations on the Norwegian gas grid (`gasmet_01`–`gasmet_50`), plus three richer K-lab
+gases (`klab_gas_01`–`klab_gas_03`) — tick **Include K-lab gases** to add them. The plots show
+relative deviation from REFPROP in percent.
         """
     )
     with st.expander("Calculation method and data source", expanded=False):
         st.markdown(
             """
-This tab presents pre-computed property comparisons for 50 anonymized gas metering stations
-connected to the Norwegian gas grid and three K-lab gases. The metering-station
-identities have been removed and replaced by neutral identifiers (`gasmet_01`–`gasmet_50`), and
-the selected K-lab gases are identified only as `klab_gas_01`–`klab_gas_03`. The data are made
-available for this study with permission, but no field, station, or sample names are included in
-the public app.
+**Anonymisation.** The metering-station identities have been removed and replaced by neutral
+identifiers. The data are made available for this study with permission; no field, station or
+sample names appear in the app.
 
-The source compositions for the gas metering stations were measured up to **C6+**. In this
-study, the reported C6+ fraction was distributed into **nC6–nC10** using the fixed split from
-the paper:
+**Heavy end.** The source compositions were measured up to **C6+**. The reported C6+ fraction was
+distributed into **nC6–nC10** using the fixed split from the paper:
 
-| Component | Fraction of C6+ |
-|---|---:|
-| nC6 | 50.0% |
-| nC7 | 30.0% |
-| nC8 | 12.5% |
-| nC9 | 5.0% |
-| nC10 | 2.5% |
+| | nC6 | nC7 | nC8 | nC9 | nC10 |
+|---|---:|---:|---:|---:|---:|
+| Fraction of C6+ | 50.0% | 30.0% | 12.5% | 5.0% | 2.5% |
 
-The three K-lab gases originate from the gas metering station at the K-lab VGII multiphase flow
-loop. They typically contain higher C5+ content than most of the `gasmet` gases, and are included
-as representative examples of richer gases found closer to the wells, for example at first-stage
-and test separators.
+**K-lab gases.** These come from the gas metering station at the K-lab VGII multiphase flow loop.
+They carry more C5+ than most `gasmet` gases, representing richer gas found closer to the wells —
+for example at first-stage and test separators.
 
-For each gas composition, the cricondentherm was calculated with NeqSim, and the analysis
-temperature was set to the cricondentherm plus 10 °C, with a minimum temperature of 10 °C.
-Gas properties were then calculated from 10 to 300 bara.
+**Calculation.** The cricondentherm was calculated with NeqSim, and each pressure sweep runs from
+10 to 300 bara at `max(cricondentherm + 10 °C, 10 °C)`. AGA8 DETAIL and GERG-2008 come from
+`pvtlib`, REFPROP through the `ctREFPROP` package. REFPROP requires a separate licence and is not
+run inside this app; only its pre-computed results are stored here.
 
-The plots compare properties calculated with AGA8 DETAIL and AGA8 GERG-2008 against REFPROP. DETAIL
-and GERG-2008 were calculated using `pvtlib`, while REFPROP was accessed programmatically using
-the `ctREFPROP` Python package. REFPROP itself requires a separate license and is not run inside
-this app; only the pre-computed REFPROP comparison results are included here.
-
-Relative deviations are shown as:
-
-`100 × (Property_AGA8 - Property_REFPROP) / Property_REFPROP [%]`
+Deviations are reported as `100 × (Property_AGA8 − Property_REFPROP) / Property_REFPROP [%]`.
             """
         )
 
