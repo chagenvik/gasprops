@@ -57,7 +57,11 @@ Calculates the flow rate through differential-pressure meters using the ISO 5167
 | V-cone | ISO 5167-5:2022 | 0.82 uncalibrated, or calibrated value |
 
 The tab supports single-point, multi-point and inverse (solve for Δp) workflows, converts mass
-flow to Sm³/h and Sm³/d at 1.01325 bara / 15 °C, and flags ISO 5167 range-of-use violations.
+flow to Sm³/h and Sm³/d at 1.01325 bara / 15 °C, and flags ISO 5167 range-of-use violations for
+the pipe diameter, beta and pressure ratio. Geometry can be entered either as pipe diameter plus
+beta (default) or as pipe diameter plus throat/cone diameter. Whenever a fixed discharge
+coefficient is used, the result carries a reminder to verify the ISO 5167 range of use, since a
+fixed C is only valid inside it.
 Venturi range checks use the as-cast construction envelope; selecting another fixed coefficient
 also emits a reminder to verify its construction-specific limits. Parameter diagrams for each
 meter type are in `assets/dp_meters/`.

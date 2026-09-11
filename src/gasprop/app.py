@@ -68,7 +68,7 @@ def tab_nth_child_selector(labels: tuple[str, ...], suffix: str = "") -> str:
     """
     order = list(VIEW_MAP.keys())
     selectors = [
-        f'[data-testid="stTabs"] [data-baseweb="tab"]:nth-child({order.index(label) + 1}){suffix}'
+        f'[data-testid="stTabs"] [data-testid="stTab"]:nth-child({order.index(label) + 1}){suffix}'
         for label in labels
         if label in order
     ]
@@ -149,20 +149,30 @@ def run_app() -> None:
             color: #194f73;
         }
 
-        [data-testid="stTabs"] [data-baseweb="tab-list"] {
+        [data-testid="stTabs"] [role="tablist"] {
             flex-wrap: wrap;
             gap: 0.4rem;
             row-gap: 0.55rem;
             overflow: visible;
             height: auto;
         }
-        [data-testid="stTabs"] [data-baseweb="tab"] {
+        [data-testid="stTabs"] [data-testid="stTab"] {
             border-radius: 999px;
             border: 1px solid rgba(8, 88, 140, 0.16);
             background: rgba(255, 255, 255, 0.85);
             color: #19567d;
-            padding: 0.38rem 0.95rem;
-            flex: 0 0 auto;
+            /* Every tab gets the same width, so a long label like "Multi-Point
+               Calculation" and a short one like "Mix" read as an even grid rather
+               than a ragged row. The block container caps at 1300px, leaving about
+               1204px of tab bar, so 10.25rem fits seven per row and lands the 13
+               tabs on two even rows while still clearing the longest label. */
+            flex: 0 0 10.25rem;
+            padding: 0.38rem 0.6rem;
+            justify-content: center;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
             transition: all 0.2s ease;
         }
         [data-testid="stTabs"] [aria-selected="true"] {
@@ -170,6 +180,16 @@ def run_app() -> None:
             color: white;
             border-color: rgba(8, 114, 180, 0.45);
             box-shadow: 0 8px 18px rgba(27, 125, 183, 0.25);
+        }
+        /* Streamlit's sliding underline only tracked horizontal position, so on a
+           wrapped tab bar it sat under the bottom row no matter which tab was
+           selected. The react-aria tabs in 1.63 no longer render these elements,
+           but the rule is kept so the filled pill stays the only selection marker
+           if an underline or bottom border reappears. */
+        [data-testid="stTabs"] [data-baseweb="tab-highlight"],
+        [data-testid="stTabs"] [data-baseweb="tab-border"],
+        [data-testid="stTabs"] [role="tablist"]::after {
+            display: none;
         }
 
         /* Highlight NeqSim-backed tabs (Flash + Phase Envelope) */
@@ -243,7 +263,9 @@ def run_app() -> None:
                 padding-left: 1rem;
                 padding-right: 1rem;
             }
-            [data-testid="stTabs"] [data-baseweb="tab"] {
+            [data-testid="stTabs"] [data-testid="stTab"] {
+                /* Too narrow for a fixed grid, so fall back to natural widths. */
+                flex: 0 0 auto;
                 padding: 0.35rem 0.7rem;
                 font-size: 0.86rem;
             }
@@ -262,8 +284,8 @@ def run_app() -> None:
             [data-testid="stExpander"],
             [data-testid="stAlert"],
             [data-testid="stMetric"],
-            [data-baseweb="input"] > div,
-            [data-baseweb="select"] > div,
+            [data-testid="stNumberInputContainer"],
+            [data-testid="stSelectbox"] > div,
             .stNumberInput input,
             .stTextInput input,
             .stTextArea textarea {
@@ -293,11 +315,6 @@ def run_app() -> None:
         "AGA8 calculations are valid for **single-phase gas** and use the **21-component AGA8 set**."
     )
     st.markdown(
-        "The **Flash Calculation** and **Phase Envelope** tabs are using **NeqSim**, which supports multiple phases through various EoS. "
-        "The **DP Flow Meter** and **Flow Converter** tabs cover flow metering rather than gas properties. "
-        "Both groups are colour-coded in the tab bar to distinguish them from the AGA8 property tabs."
-    )
-    st.markdown(
         "Developed by **Equinor K-lab**, by Christian Hågenvik. This application is built on open-source libraries: "
         "[pvtlib](https://github.com/equinor/pvtlib), "
         "[uncertaintylib](https://github.com/equinor/uncertaintylib), and "
@@ -312,7 +329,7 @@ def run_app() -> None:
     _render_terms_notice()
 
     st.info(
-        "**Calculation scope:** Most tabs use AGA8 DETAIL/GERG and are valid for single-phase gas within the AGA8 component set. "
+        "**Calculation scope:** Most tabs use AGA8 DETAIL/GERG and are only valid for single-phase gas within the AGA8 component set. "
         "**Flash Calculation** and **Phase Envelope** use NeqSim workflows for phase-behavior analysis, and "
         "**DP Flow Meter** and **Flow Converter** cover flow metering.",
         icon="ℹ️",
@@ -329,7 +346,8 @@ Computes thermodynamic and transport properties using two calculation engines:
 
 **How to use**
 1. Enter the gas composition in the **Gas Composition** table (units: mol%).
-   Use **Set to zero**, **Normalize** or **Distribute C6+** below the table to edit it quickly.
+   Use **Set to zero** or **Normalize** below the table to edit it quickly, and the
+   **Decimals** stepper to change how many decimals are shown.
 2. Import and export compositions with **Import composition (CSV)** and **Export composition (CSV)**.
    Turn on **Use example gases** to load a bundled example, or reload a previously stored
    composition via *Use saved fluid (session)*.

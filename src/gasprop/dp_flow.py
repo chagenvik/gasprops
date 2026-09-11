@@ -64,17 +64,14 @@ ISO_LIMITS: dict[str, dict[str, tuple[float, float]]] = {
     "Venturi": {
         "pipe_diameter_mm": (100.0, 800.0),
         "beta": (0.30, 0.75),
-        "reynolds": (2.0e5, 2.0e6),
     },
     "Orifice": {
         "pipe_diameter_mm": (50.0, 1000.0),
         "beta": (0.10, 0.75),
-        "reynolds": (5.0e3, math.inf),
     },
     "V-cone": {
         "pipe_diameter_mm": (50.0, 500.0),
         "beta": (0.45, 0.75),
-        "reynolds": (8.0e4, 1.2e7),
     },
 }
 
@@ -144,6 +141,41 @@ class MeterGeometry:
     def throat_diameter_m(self) -> float:
         """Equivalent throat diameter ``beta * D`` [m], used for the V-cone."""
         return self.beta * self.D_m
+
+    @classmethod
+    def from_beta(
+        cls,
+        meter_type: MeterType,
+        pipe_diameter_mm: float,
+        beta: float,
+        tapping: str = "corner",
+    ) -> "MeterGeometry":
+        """Build the geometry from ``D`` and ``beta`` instead of the bore/cone diameter."""
+        bore = bore_diameter_from_beta(meter_type, pipe_diameter_mm, beta)
+        return cls(
+            meter_type=meter_type,
+            pipe_diameter_mm=pipe_diameter_mm,
+            bore_diameter_mm=bore,
+            tapping=tapping,
+        )
+
+
+def bore_diameter_from_beta(meter_type: str, pipe_diameter_mm: float, beta: float) -> float:
+    """Bore/cone diameter [mm] that gives ``beta`` in a pipe of ``pipe_diameter_mm``.
+
+    Venturi and orifice meters use ``beta = d / D``, so ``d = beta * D``. A V-cone uses
+    ``beta = sqrt(1 - (dc / D)^2)``, which inverts to ``dc = D * sqrt(1 - beta^2)`` — a
+    larger beta means a *smaller* cone.
+    """
+    if meter_type not in METER_TYPES:
+        raise DPFlowError(f"Unknown meter type '{meter_type}'. Expected one of {list(METER_TYPES)}.")
+    if not math.isfinite(beta) or not 0.0 < beta < 1.0:
+        raise DPFlowError("Beta must be a finite number between 0 and 1.")
+    if not math.isfinite(pipe_diameter_mm) or pipe_diameter_mm <= 0.0:
+        raise DPFlowError("Pipe diameter D must be a finite number greater than zero.")
+    if meter_type == "V-cone":
+        return pipe_diameter_mm * math.sqrt(1.0 - beta**2)
+    return pipe_diameter_mm * beta
 
 
 # ── Gas state ─────────────────────────────────────────────────────────────────
@@ -421,7 +453,6 @@ class DPFlowResult:
 
 def _range_warnings(
     geometry: MeterGeometry,
-    re_number: float | None,
     pressure_ratio: float,
 ) -> list[str]:
     """Collect ISO 5167 range-of-use warnings. An empty list means no warnings."""
@@ -447,26 +478,6 @@ def _range_warnings(
         warnings.append(
             f"Orifice bore d = {geometry.bore_diameter_mm:.2f} mm is below the ISO 5167-2 minimum of 12.5 mm."
         )
-
-    if re_number is None or not math.isfinite(re_number):
-        warnings.append(
-            "Reynolds number could not be checked because dynamic viscosity is unavailable."
-        )
-    else:
-        if geometry.meter_type == "Orifice" and beta > 0.56:
-            re_min, re_max = 16000.0 * beta**2, math.inf
-        else:
-            re_min, re_max = limits["reynolds"]
-        if re_number < re_min:
-            warnings.append(
-                f"Reynolds number {re_number:.3e} is below the ISO 5167 minimum "
-                f"of {re_min:.1e} for a {geometry.meter_type} meter."
-            )
-        elif re_number > re_max:
-            warnings.append(
-                f"Reynolds number {re_number:.3e} is above the ISO 5167 maximum "
-                f"of {re_max:.1e} for a {geometry.meter_type} meter."
-            )
 
     if pressure_ratio < MIN_PRESSURE_RATIO:
         warnings.append(
@@ -633,11 +644,17 @@ def calculate_dp_flow(
 
     std_volume_flow = mass_flow / gas_state.standard_density_kg_sm3
 
-    warnings = _range_warnings(geometry, re_value, pressure_ratio)
-    if geometry.meter_type == "Venturi" and fixed_c is not None:
+    warnings = _range_warnings(geometry, pressure_ratio)
+    # Only the orifice can solve for C iteratively; the other meters always run on a
+    # fixed coefficient, including the ISO default used for an uncalibrated meter.
+    uses_fixed_c = geometry.meter_type != "Orifice" or fixed_c is not None
+    if uses_fixed_c:
         warnings.append(
-            "Venturi geometry and Reynolds checks use the ISO 5167-4 as-cast "
-            "construction range; verify construction-specific limits for this fixed C."
+            "A fixed discharge coefficient is used. For an uncalibrated meter, check that the "
+            "operating point stays inside the range of use of the relevant part of ISO 5167 "
+            "(pipe diameter, beta, Reynolds number and pipe roughness) — C is only valid there. "
+            "For a calibrated meter, use the coefficient from the calibration certificate within "
+            "its calibrated range."
         )
 
     return DPFlowResult(

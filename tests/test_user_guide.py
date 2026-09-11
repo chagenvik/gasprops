@@ -48,7 +48,7 @@ def test_every_tab_is_described_in_the_guide(guide_text):
     [
         "Set to zero",
         "Normalize",
-        "Distribute C6+",
+        "Decimals",
         "Import composition (CSV)",
         "Export composition (CSV)",
         "Use example gases",

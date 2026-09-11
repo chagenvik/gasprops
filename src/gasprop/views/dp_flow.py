@@ -77,6 +77,10 @@ BORE_LABELS: dict[str, str] = {
     "V-cone": "Cone diameter d\u1d04 at the beta edge [mm]",
 }
 
+#: Kept independent of the meter type so switching meters never invalidates the
+#: selected radio option.
+GEOMETRY_INPUT_OPTIONS = ["Pipe diameter + beta", "Pipe diameter + throat/cone diameter"]
+
 _DEFAULT_POINTS = pd.DataFrame(
     {
         "dP [mbar]": [100.0, 250.0, 500.0, 800.0],
@@ -133,6 +137,14 @@ def _meter_inputs() -> tuple[MeterGeometry | None, str]:
     st.caption(METER_DESCRIPTIONS[meter_type])
     _render_diagram(meter_type)
 
+    geometry_input = st.radio(
+        "Geometry input",
+        GEOMETRY_INPUT_OPTIONS,
+        horizontal=True,
+        key="dpf_geometry_input",
+        help="Give beta directly, or give the throat/cone diameter and let beta follow from it.",
+    )
+
     c1, c2 = st.columns(2)
     pipe_diameter = c1.number_input(
         "Pipe diameter D [mm]",
@@ -140,16 +152,30 @@ def _meter_inputs() -> tuple[MeterGeometry | None, str]:
         key="dpf_pipe_diameter",
         help="Internal pipe diameter at the upstream pressure tapping.",
     )
-    bore_diameter = c2.number_input(
-        BORE_LABELS[meter_type],
-        min_value=0.1, max_value=5000.0, value=120.0, step=1.0, format="%.3f",
-        key="dpf_bore_diameter",
-        help=(
-            "Cone diameter in the plane of the beta edge."
-            if meter_type == "V-cone"
-            else "Throat / bore diameter of the primary element."
-        ),
-    )
+
+    use_beta = geometry_input == GEOMETRY_INPUT_OPTIONS[0]
+    if use_beta:
+        beta_input = c2.number_input(
+            "Beta (β) [-]",
+            min_value=0.01, max_value=0.99, value=0.60, step=0.01, format="%.4f",
+            key="dpf_beta",
+            help=(
+                "Beta of the cone meter; the cone diameter follows from it."
+                if meter_type == "V-cone"
+                else "Diameter ratio d/D; the throat diameter follows from it."
+            ),
+        )
+    else:
+        bore_diameter = c2.number_input(
+            BORE_LABELS[meter_type],
+            min_value=0.1, max_value=5000.0, value=120.0, step=1.0, format="%.3f",
+            key="dpf_bore_diameter",
+            help=(
+                "Cone diameter in the plane of the beta edge."
+                if meter_type == "V-cone"
+                else "Throat / bore diameter of the primary element."
+            ),
+        )
 
     tapping = "corner"
     if meter_type == "Orifice":
@@ -159,18 +185,29 @@ def _meter_inputs() -> tuple[MeterGeometry | None, str]:
         )
 
     try:
-        geometry = MeterGeometry(
-            meter_type=meter_type,
-            pipe_diameter_mm=float(pipe_diameter),
-            bore_diameter_mm=float(bore_diameter),
-            tapping=tapping,
-        )
+        if use_beta:
+            geometry = MeterGeometry.from_beta(
+                meter_type=meter_type,
+                pipe_diameter_mm=float(pipe_diameter),
+                beta=float(beta_input),
+                tapping=tapping,
+            )
+        else:
+            geometry = MeterGeometry(
+                meter_type=meter_type,
+                pipe_diameter_mm=float(pipe_diameter),
+                bore_diameter_mm=float(bore_diameter),
+                tapping=tapping,
+            )
     except DPFlowError as exc:
         st.error(str(exc))
         return None, meter_type
 
     beta_min, beta_max = ISO_LIMITS[meter_type]["beta"]
-    st.markdown(f"**Beta (β):** {geometry.beta:.4f}  —  ISO 5167 range of use: {beta_min:.2f}–{beta_max:.2f}")
+    st.markdown(
+        f"**Beta (β):** {geometry.beta:.4f}  —  ISO 5167 range of use: {beta_min:.2f}–{beta_max:.2f}  \n"
+        f"**{BORE_LABELS[meter_type]}:** {geometry.bore_diameter_mm:.3f}"
+    )
     return geometry, meter_type
 
 
@@ -344,7 +381,7 @@ def _result_rows(result: DPFlowResult) -> list[dict[str, str]]:
 def _render_warnings(result: DPFlowResult) -> None:
     if result.warnings:
         st.warning(
-            "**ISO 5167 range-of-use checks:**\n\n"
+            "**ISO 5167 checks and reminders:**\n\n"
             + "\n".join(f"- {message}" for message in result.warnings)
         )
     else:
@@ -529,7 +566,7 @@ def _render_multi_point(
 
     if all_warnings:
         st.warning(
-            "**ISO 5167 range-of-use checks:**\n\n"
+            "**ISO 5167 checks and reminders:**\n\n"
             + "\n".join(f"- {message}" for message in all_warnings)
         )
 

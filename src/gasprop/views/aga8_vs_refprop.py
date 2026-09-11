@@ -42,6 +42,11 @@ GROUP_FILTER_OPTIONS = ["All quality ranges", *QUALITY_GROUPS, *COMPOSITE_FILTER
 
 GERG_COLOR = "#0000a2"
 DETAIL_COLOR = "#E69F00"
+DEFAULT_LINE_WIDTH = 1.8
+#: Plotly renders the spline in the browser from the same points, so this smooths
+#: the 10 bara sampling without adding any interpolated data.
+LINE_SHAPE = "spline"
+LINE_SMOOTHING = 1.0
 
 COMPONENT_ORDER = [
     "N2", "CO2", "C1", "C2", "C3", "iC4", "nC4", "iC5", "nC5",
@@ -55,7 +60,11 @@ _METRICS = [
     ("Compressibility factor", "GERG_Z_rel_dev", "DETAIL_Z_rel_dev"),
     ("Isentropic exponent", "GERG_kappa_rel_dev", "DETAIL_kappa_rel_dev"),
 ]
+_METRIC_NAMES = [name for name, _, _ in _METRICS]
 _AXIS_POSITIONS = [(1, 1), (1, 2), (2, 1), (2, 2)]
+_GRID_HEIGHT = 900
+_SINGLE_METRIC_HEIGHT = 640
+PLOT_LAYOUT_OPTIONS = ["All four properties", "Single property"]
 _SCATTER_STATISTICS = ["At selected pressure", "Maximum absolute", "Maximum", "Minimum", "Mean"]
 _DEFAULT_SCATTER_X_AXIS = "C3"
 _DEFAULT_SCATTER_EOS = "GERG-2008"
@@ -156,6 +165,21 @@ def load_all_results() -> dict[str, pd.DataFrame]:
     return {csv_path.stem: pd.read_csv(csv_path) for csv_path in sorted(RESULTS_DIR.glob("*.csv"))}
 
 
+def _metric_subplots(metrics):
+    """Build the subplot frame for the chosen metrics.
+
+    One metric fills the full width as a single panel; four are laid out as a
+    2x2 grid. Returns the figure, the (row, col) slot per metric and the figure
+    height that suits the layout.
+    """
+    subplot_titles = [name for name, _, _ in metrics]
+    if len(metrics) == 1:
+        figure = make_subplots(rows=1, cols=1, subplot_titles=subplot_titles)
+        return figure, [(1, 1)], _SINGLE_METRIC_HEIGHT
+    figure = make_subplots(rows=2, cols=2, subplot_titles=subplot_titles)
+    return figure, _AXIS_POSITIONS, _GRID_HEIGHT
+
+
 def _apply_axis_styling(figure: go.Figure, y_axis_range) -> go.Figure:
     figure.update_xaxes(
         title_text="Pressure [bara]",
@@ -179,28 +203,41 @@ def _apply_axis_styling(figure: go.Figure, y_axis_range) -> go.Figure:
     return figure
 
 
-def _create_single_figure(station_id, df, eos_models, y_axis_range, eos_colors) -> go.Figure:
+def _create_single_figure(
+    station_id,
+    df,
+    eos_models,
+    y_axis_range,
+    eos_colors,
+    line_width=DEFAULT_LINE_WIDTH,
+    metrics=None,
+) -> go.Figure:
+    metrics = metrics or _METRICS
     trace_map = {
         "GERG-2008": {"color": eos_colors["GERG-2008"], "gerg": True},
         "DETAIL": {"color": eos_colors["DETAIL"], "gerg": False},
     }
-    figure = make_subplots(rows=2, cols=2, subplot_titles=[m[0] for m in _METRICS])
+    figure, axis_positions, height = _metric_subplots(metrics)
 
     for eos_name in eos_models:
         is_gerg = trace_map[eos_name]["gerg"]
-        for index, (_, gerg_col, detail_col) in enumerate(_METRICS):
-            row, col = _AXIS_POSITIONS[index]
+        for index, (_, gerg_col, detail_col) in enumerate(metrics):
+            row, col = axis_positions[index]
             column_name = gerg_col if is_gerg else detail_col
             figure.add_trace(
                 go.Scatter(
                     x=df["P_bara"],
                     y=df[column_name],
-                    mode="lines+markers",
+                    mode="lines",
                     name=eos_name,
                     legendgroup=eos_name,
                     showlegend=index == 0,
-                    line={"color": trace_map[eos_name]["color"]},
-                    marker={"size": 7},
+                    line={
+                        "color": trace_map[eos_name]["color"],
+                        "width": line_width,
+                        "shape": LINE_SHAPE,
+                        "smoothing": LINE_SMOOTHING,
+                    },
                 ),
                 row=row,
                 col=col,
@@ -208,30 +245,44 @@ def _create_single_figure(station_id, df, eos_models, y_axis_range, eos_colors) 
 
     figure.update_layout(
         title=f"{station_id} — all pressure points",
-        height=850,
+        height=height,
         template="plotly_white",
     )
     return _apply_axis_styling(figure, y_axis_range)
 
 
-def _create_group_figure(results_by_station, eos_models, title_label, y_axis_range, eos_colors) -> go.Figure:
-    figure = make_subplots(rows=2, cols=2, subplot_titles=[m[0] for m in _METRICS])
+def _create_group_figure(
+    results_by_station,
+    eos_models,
+    title_label,
+    y_axis_range,
+    eos_colors,
+    line_width=DEFAULT_LINE_WIDTH,
+    metrics=None,
+) -> go.Figure:
+    metrics = metrics or _METRICS
+    figure, axis_positions, height = _metric_subplots(metrics)
 
     trace_specs = {
+        # Both models are drawn solid: with up to 50 gases per model the dashes
+        # and markers turned the panels into noise, and the colour alone
+        # separates the two models well enough.
         "GERG-2008": {
-            "column_index": 1,
-            "line": {"color": eos_colors["GERG-2008"], "dash": "solid"},
-            "marker": {"size": 5},
+            "color": eos_colors["GERG-2008"],
+            "width": line_width,
+            "shape": LINE_SHAPE,
+            "smoothing": LINE_SMOOTHING,
         },
         "DETAIL": {
-            "column_index": 2,
-            "line": {"color": eos_colors["DETAIL"], "dash": "dash"},
-            "marker": {"size": 5, "symbol": "square"},
+            "color": eos_colors["DETAIL"],
+            "width": line_width,
+            "shape": LINE_SHAPE,
+            "smoothing": LINE_SMOOTHING,
         },
     }
 
-    for index, (_, gerg_col, detail_col) in enumerate(_METRICS):
-        row, col = _AXIS_POSITIONS[index]
+    for index, (_, gerg_col, detail_col) in enumerate(metrics):
+        row, col = axis_positions[index]
         metric_columns = {"GERG-2008": gerg_col, "DETAIL": detail_col}
 
         for eos_name in eos_models:
@@ -252,12 +303,11 @@ def _create_group_figure(results_by_station, eos_models, title_label, y_axis_ran
                     x=x_values,
                     y=y_values,
                     customdata=gas_ids,
-                    mode="lines+markers",
+                    mode="lines",
                     name=eos_name,
                     legendgroup=eos_name,
                     showlegend=index == 0,
-                    line=trace_specs[eos_name]["line"],
-                    marker=trace_specs[eos_name]["marker"],
+                    line=trace_specs[eos_name],
                     hovertemplate=(
                         "Gas: %{customdata}<br>"
                         f"EOS: {eos_name}<br>"
@@ -269,7 +319,7 @@ def _create_group_figure(results_by_station, eos_models, title_label, y_axis_ran
                 col=col,
             )
 
-    figure.update_layout(title=title_label, height=900, template="plotly_white")
+    figure.update_layout(title=title_label, height=height, template="plotly_white")
     return _apply_axis_styling(figure, y_axis_range)
 
 
@@ -438,70 +488,40 @@ def render(composition: dict | None) -> None:
     st.subheader("AGA8 vs REFPROP — results from Global Flow Measurement Workshop 2026 paper")
     st.markdown(
         """
-The results in this tab originate from the paper **"Uncertainty in Calculated Gas Properties
-Outside Pipeline Quality Natural Gas"**, presented at the **Global Flow Measurement Workshop (GFMW)
-2026**.
+**All results shown in this tab are taken from the paper "Uncertainty in Calculated Gas Properties
+Outside Pipeline Quality Natural Gas", presented at the Global Flow Measurement Workshop (GFMW)
+2026.**
 
-This tab shows pre-computed comparisons for 50 anonymized gas metering stations connected to
-the Norwegian gas grid (`gasmet_01`–`gasmet_50`) and three anonymized K-lab gases
-(`klab_gas_01`–`klab_gas_03`). In the source data for the gas metering stations, gas
-compositions were measured up to **C6+**. For the calculations shown here, the reported C6+
-fraction was distributed into **nC6–nC10** using a fixed split: **nC6 50.0%, nC7 30.0%,
-nC8 12.5%, nC9 5.0%, and nC10 2.5%**.
-
-In addition, three K-lab gases are included in the results. The K-lab gases originate from the gas metering station at the K-lab VGII multiphase flow loop,
-as presented in the paper. They typically contain higher C5+ content than most of the
-`gasmet` gases, and might be more representative of gases found closer to the wells, for example at
-first-stage and test separators. To include the K-lab gases in the plots, check the **Include K-lab gases** checkbox.
-
-For each composition, AGA8 DETAIL and AGA8 GERG-2008 properties were calculated with `pvtlib` and
-compared against REFPROP reference results obtained through `ctREFPROP`. REFPROP requires a
-separate license and is not run in this app.
-
-Cricondentherm values were calculated with NeqSim, and each pressure sweep was evaluated from
-10 to 300 bara at `max(cricondentherm + 10 °C, 10 °C)`. The plots show relative deviation from
-REFPROP in percent.
+They are pre-computed comparisons of AGA8 DETAIL and GERG-2008 against REFPROP for 50 anonymized
+gas metering stations on the Norwegian gas grid (`gasmet_01`–`gasmet_50`), plus three richer K-lab
+gases (`klab_gas_01`–`klab_gas_03`) — tick **Include K-lab gases** to add them. The plots show
+relative deviation from REFPROP in percent.
         """
     )
     with st.expander("Calculation method and data source", expanded=False):
         st.markdown(
             """
-This tab presents pre-computed property comparisons for 50 anonymized gas metering stations
-connected to the Norwegian gas grid and three K-lab gases. The metering-station
-identities have been removed and replaced by neutral identifiers (`gasmet_01`–`gasmet_50`), and
-the selected K-lab gases are identified only as `klab_gas_01`–`klab_gas_03`. The data are made
-available for this study with permission, but no field, station, or sample names are included in
-the public app.
+**Anonymisation.** The metering-station identities have been removed and replaced by neutral
+identifiers. The data are made available for this study with permission; no field, station or
+sample names appear in the app.
 
-The source compositions for the gas metering stations were measured up to **C6+**. In this
-study, the reported C6+ fraction was distributed into **nC6–nC10** using the fixed split from
-the paper:
+**Heavy end.** The source compositions were measured up to **C6+**. The reported C6+ fraction was
+distributed into **nC6–nC10** using the fixed split from the paper:
 
-| Component | Fraction of C6+ |
-|---|---:|
-| nC6 | 50.0% |
-| nC7 | 30.0% |
-| nC8 | 12.5% |
-| nC9 | 5.0% |
-| nC10 | 2.5% |
+| | nC6 | nC7 | nC8 | nC9 | nC10 |
+|---|---:|---:|---:|---:|---:|
+| Fraction of C6+ | 50.0% | 30.0% | 12.5% | 5.0% | 2.5% |
 
-The three K-lab gases originate from the gas metering station at the K-lab VGII multiphase flow
-loop. They typically contain higher C5+ content than most of the `gasmet` gases, and are included
-as representative examples of richer gases found closer to the wells, for example at first-stage
-and test separators.
+**K-lab gases.** These come from the gas metering station at the K-lab VGII multiphase flow loop.
+They carry more C5+ than most `gasmet` gases, representing richer gas found closer to the wells —
+for example at first-stage and test separators.
 
-For each gas composition, the cricondentherm was calculated with NeqSim, and the analysis
-temperature was set to the cricondentherm plus 10 °C, with a minimum temperature of 10 °C.
-Gas properties were then calculated from 10 to 300 bara.
+**Calculation.** The cricondentherm was calculated with NeqSim, and each pressure sweep runs from
+10 to 300 bara at `max(cricondentherm + 10 °C, 10 °C)`. AGA8 DETAIL and GERG-2008 come from
+`pvtlib`, REFPROP through the `ctREFPROP` package. REFPROP requires a separate licence and is not
+run inside this app; only its pre-computed results are stored here.
 
-The plots compare properties calculated with AGA8 DETAIL and AGA8 GERG-2008 against REFPROP. DETAIL
-and GERG-2008 were calculated using `pvtlib`, while REFPROP was accessed programmatically using
-the `ctREFPROP` Python package. REFPROP itself requires a separate license and is not run inside
-this app; only the pre-computed REFPROP comparison results are included here.
-
-Relative deviations are shown as:
-
-`100 × (Property_AGA8 - Property_REFPROP) / Property_REFPROP [%]`
+Deviations are reported as `100 × (Property_AGA8 − Property_REFPROP) / Property_REFPROP [%]`.
             """
         )
 
@@ -550,6 +570,21 @@ Relative deviations are shown as:
         "Outside Intermediate", int(group_counts.get("Outside Intermediate Quality", 0))
     )
     with control_col_2:
+        plot_layout = st.radio(
+            "Plot layout",
+            PLOT_LAYOUT_OPTIONS,
+            horizontal=True,
+            key="aga8_refprop_plot_layout",
+        )
+        if plot_layout == "Single property":
+            shown_metric = st.selectbox(
+                "Property to plot",
+                _METRIC_NAMES,
+                key="aga8_refprop_shown_metric",
+            )
+            metrics = [m for m in _METRICS if m[0] == shown_metric]
+        else:
+            metrics = _METRICS
         eos_models = st.multiselect(
             "EOS models",
             EOS_OPTIONS,
@@ -566,6 +601,15 @@ Relative deviations are shown as:
             "DETAIL color",
             value=DETAIL_COLOR,
             key="aga8_refprop_detail_color",
+        )
+        line_width = st.slider(
+            "Line width",
+            min_value=0.5,
+            max_value=4.0,
+            value=DEFAULT_LINE_WIDTH,
+            step=0.1,
+            help="Applies to both GERG-2008 and DETAIL in the deviation plots.",
+            key="aga8_refprop_line_width",
         )
         use_default_y_range = st.checkbox(
             "Fix y-axis range for deviation plots",
@@ -618,7 +662,9 @@ Relative deviations are shown as:
 
         results_df = load_results(selected_id)
         st.plotly_chart(
-            _create_single_figure(selected_id, results_df, eos_models, y_axis_range, eos_colors),
+            _create_single_figure(
+                selected_id, results_df, eos_models, y_axis_range, eos_colors, line_width, metrics
+            ),
             use_container_width=True,
         )
         with st.expander("Show result data"):
@@ -638,7 +684,15 @@ Relative deviations are shown as:
             all_results = load_all_results()
             results_by_station = {station_id: all_results[station_id] for station_id in selected_ids}
             st.plotly_chart(
-                _create_group_figure(results_by_station, eos_models, quality_filter, y_axis_range, eos_colors),
+                _create_group_figure(
+                    results_by_station,
+                    eos_models,
+                    quality_filter,
+                    y_axis_range,
+                    eos_colors,
+                    line_width,
+                    metrics,
+                ),
                 use_container_width=True,
             )
             with st.expander("Show gas summary"):

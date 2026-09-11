@@ -257,7 +257,7 @@ def test_venturi_manual_discharge_coefficient_scales_mass_flow_linearly():
 
     assert calibrated.discharge_coefficient_source == "Manual"
     assert calibrated.mass_flow_kg_h == pytest.approx(default.mass_flow_kg_h * 0.995 / 0.984)
-    assert any("as-cast construction range" in warning for warning in calibrated.warnings)
+    assert any("fixed discharge coefficient" in warning for warning in calibrated.warnings)
 
 
 def test_mass_flow_scales_with_square_root_of_dp_at_fixed_coefficients():
@@ -423,8 +423,9 @@ def test_reynolds_number_is_none_when_viscosity_is_unavailable(monkeypatch):
 
     result = dp_flow.calculate_dp_flow(V_CONE, state, 500.0)
     assert result.reynolds_number is None
-    assert len(result.warnings) == 1
-    assert "could not be checked" in result.warnings[0]
+    # A missing viscosity is no longer a warning in itself, since the Reynolds number
+    # is only reported, not range-checked.
+    assert not any("could not be checked" in message for message in result.warnings)
 
 
 # ── Standard volume conversion ────────────────────────────────────────────────
@@ -475,18 +476,17 @@ def test_nonfinite_isentropic_exponent_is_rejected():
 
 
 # ── ISO 5167 range checks ─────────────────────────────────────────────────────
-def test_in_range_venturi_produces_no_warnings():
-    # Low dP keeps the Reynolds number inside the ISO 5167-4 range of use (2e5-2e6).
+def test_in_range_venturi_only_warns_about_the_fixed_discharge_coefficient():
     result = dp_flow.calculate_dp_flow(VENTURI, _gas_state(), 8.0)
-    assert result.reynolds_number == pytest.approx(1.8e6, rel=0.1)
-    assert result.warnings == ()
+
+    assert len(result.warnings) == 1
+    assert "fixed discharge coefficient" in result.warnings[0]
 
 
 def test_small_pipe_and_low_beta_venturi_reports_both_issues():
     geometry = dp_flow.MeterGeometry(meter_type="Venturi", pipe_diameter_mm=50.0, bore_diameter_mm=10.0)
     result = dp_flow.calculate_dp_flow(geometry, _gas_state(), 500.0)
 
-    assert len(result.warnings) == 2
     assert any("Pipe diameter D" in message for message in result.warnings)
     assert any("Beta" in message for message in result.warnings)
 
@@ -503,34 +503,106 @@ def test_low_pressure_ratio_is_flagged():
     assert any("Pressure ratio" in message for message in result.warnings)
 
 
-def test_low_reynolds_number_is_flagged_for_venturi():
-    state = _gas_state(viscosity_pa_s=1.0e-2)
-    result = dp_flow.calculate_dp_flow(VENTURI, state, 10.0)
-    assert any("below the ISO 5167 minimum" in message for message in result.warnings)
+def test_reynolds_number_outside_the_iso_range_is_no_longer_flagged():
+    # A very high viscosity drives Re far below the old ISO 5167-4 minimum of 2e5.
+    result = dp_flow.calculate_dp_flow(VENTURI, _gas_state(viscosity_pa_s=1.0e-2), 10.0)
 
-
-def test_high_reynolds_number_is_flagged_for_venturi():
-    state = _gas_state(viscosity_pa_s=1.0e-7)
-    result = dp_flow.calculate_dp_flow(VENTURI, state, 500.0)
-    assert any("above the ISO 5167 maximum" in message for message in result.warnings)
-
-
-def test_high_reynolds_number_is_flagged_for_v_cone():
-    warnings = dp_flow._range_warnings(V_CONE, 1.21e7, 0.99)
-
-    assert len(warnings) == 1
-    assert "above the ISO 5167 maximum" in warnings[0]
-
-
-def test_high_beta_orifice_uses_beta_dependent_minimum_reynolds_number():
-    geometry = dp_flow.MeterGeometry(
-        meter_type="Orifice", pipe_diameter_mm=200.0, bore_diameter_mm=140.0
+    assert result.reynolds_number < 2.0e5
+    assert not any(
+        "ISO 5167 minimum" in message or "ISO 5167 maximum" in message
+        for message in result.warnings
     )
 
-    warnings = dp_flow._range_warnings(geometry, 6000.0, 0.99)
 
-    assert len(warnings) == 1
-    assert "below the ISO 5167 minimum" in warnings[0]
+def test_reynolds_number_is_still_reported_even_though_it_is_not_range_checked():
+    result = dp_flow.calculate_dp_flow(VENTURI, _gas_state(), 500.0)
+
+    assert result.reynolds_number > 0.0
+
+
+# ── Fixed discharge coefficient warning ───────────────────────────────────────
+def test_venturi_on_the_iso_default_c_warns_about_the_fixed_coefficient():
+    result = dp_flow.calculate_dp_flow(VENTURI, _gas_state(), 500.0)
+
+    assert any("fixed discharge coefficient" in message for message in result.warnings)
+
+
+def test_v_cone_on_the_iso_default_c_warns_about_the_fixed_coefficient():
+    result = dp_flow.calculate_dp_flow(V_CONE, _gas_state(), 500.0)
+
+    assert any("fixed discharge coefficient" in message for message in result.warnings)
+
+
+def test_orifice_solving_c_iteratively_does_not_warn_about_a_fixed_coefficient():
+    geometry = dp_flow.MeterGeometry(
+        meter_type="Orifice", pipe_diameter_mm=200.0, bore_diameter_mm=120.0
+    )
+
+    result = dp_flow.calculate_dp_flow(geometry, _gas_state(), 500.0)
+
+    assert result.discharge_coefficient_source.startswith("Reader-Harris/Gallagher")
+    assert not any("fixed discharge coefficient" in message for message in result.warnings)
+
+
+def test_orifice_with_a_manual_c_warns_about_the_fixed_coefficient():
+    geometry = dp_flow.MeterGeometry(
+        meter_type="Orifice", pipe_diameter_mm=200.0, bore_diameter_mm=120.0
+    )
+
+    result = dp_flow.calculate_dp_flow(
+        geometry, _gas_state(), 500.0, discharge_coefficient=0.605
+    )
+
+    assert any("fixed discharge coefficient" in message for message in result.warnings)
+
+
+# ── Geometry from beta ────────────────────────────────────────────────────────
+def test_venturi_beta_input_gives_the_matching_throat_diameter():
+    geometry = dp_flow.MeterGeometry.from_beta("Venturi", 200.0, 0.6)
+
+    assert geometry.bore_diameter_mm == pytest.approx(120.0)
+    assert geometry.beta == pytest.approx(0.6)
+
+
+def test_v_cone_beta_input_inverts_the_cone_diameter_relation():
+    # beta = sqrt(1 - (dc/D)^2), so a larger beta means a smaller cone.
+    geometry = dp_flow.MeterGeometry.from_beta("V-cone", 200.0, 0.6)
+
+    assert geometry.bore_diameter_mm == pytest.approx(160.0)
+    assert geometry.beta == pytest.approx(0.6)
+
+
+def test_larger_beta_gives_a_smaller_cone_but_a_larger_venturi_throat():
+    cone_small_beta = dp_flow.MeterGeometry.from_beta("V-cone", 200.0, 0.5)
+    cone_large_beta = dp_flow.MeterGeometry.from_beta("V-cone", 200.0, 0.75)
+    venturi_small_beta = dp_flow.MeterGeometry.from_beta("Venturi", 200.0, 0.5)
+    venturi_large_beta = dp_flow.MeterGeometry.from_beta("Venturi", 200.0, 0.75)
+
+    assert cone_large_beta.bore_diameter_mm < cone_small_beta.bore_diameter_mm
+    assert venturi_large_beta.bore_diameter_mm > venturi_small_beta.bore_diameter_mm
+
+
+def test_beta_input_and_diameter_input_give_the_same_flow():
+    from_diameter = dp_flow.MeterGeometry(
+        meter_type="Venturi", pipe_diameter_mm=200.0, bore_diameter_mm=120.0
+    )
+    from_beta = dp_flow.MeterGeometry.from_beta("Venturi", 200.0, 0.6)
+
+    flow_a = dp_flow.calculate_dp_flow(from_diameter, _gas_state(), 500.0)
+    flow_b = dp_flow.calculate_dp_flow(from_beta, _gas_state(), 500.0)
+
+    assert flow_a.mass_flow_kg_h == pytest.approx(flow_b.mass_flow_kg_h)
+
+
+@pytest.mark.parametrize("beta", [0.0, 1.0, -0.2, 1.5, math.nan])
+def test_beta_outside_zero_to_one_is_rejected(beta):
+    with pytest.raises(dp_flow.DPFlowError, match="Beta must be"):
+        dp_flow.bore_diameter_from_beta("Venturi", 200.0, beta)
+
+
+def test_bore_diameter_from_beta_rejects_an_unknown_meter_type():
+    with pytest.raises(dp_flow.DPFlowError, match="Unknown meter type"):
+        dp_flow.bore_diameter_from_beta("Wedge", 200.0, 0.6)
 
 
 # ── Inverse solve (sizing) ────────────────────────────────────────────────────
