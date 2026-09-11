@@ -42,6 +42,7 @@ GROUP_FILTER_OPTIONS = ["All quality ranges", *QUALITY_GROUPS, *COMPOSITE_FILTER
 
 GERG_COLOR = "#0000a2"
 DETAIL_COLOR = "#E69F00"
+DEFAULT_LINE_WIDTH = 1.1
 
 COMPONENT_ORDER = [
     "N2", "CO2", "C1", "C2", "C3", "iC4", "nC4", "iC5", "nC5",
@@ -179,7 +180,9 @@ def _apply_axis_styling(figure: go.Figure, y_axis_range) -> go.Figure:
     return figure
 
 
-def _create_single_figure(station_id, df, eos_models, y_axis_range, eos_colors) -> go.Figure:
+def _create_single_figure(
+    station_id, df, eos_models, y_axis_range, eos_colors, line_width=DEFAULT_LINE_WIDTH
+) -> go.Figure:
     trace_map = {
         "GERG-2008": {"color": eos_colors["GERG-2008"], "gerg": True},
         "DETAIL": {"color": eos_colors["DETAIL"], "gerg": False},
@@ -199,7 +202,7 @@ def _create_single_figure(station_id, df, eos_models, y_axis_range, eos_colors) 
                     name=eos_name,
                     legendgroup=eos_name,
                     showlegend=index == 0,
-                    line={"color": trace_map[eos_name]["color"], "width": 2},
+                    line={"color": trace_map[eos_name]["color"], "width": line_width},
                 ),
                 row=row,
                 col=col,
@@ -213,15 +216,22 @@ def _create_single_figure(station_id, df, eos_models, y_axis_range, eos_colors) 
     return _apply_axis_styling(figure, y_axis_range)
 
 
-def _create_group_figure(results_by_station, eos_models, title_label, y_axis_range, eos_colors) -> go.Figure:
+def _create_group_figure(
+    results_by_station,
+    eos_models,
+    title_label,
+    y_axis_range,
+    eos_colors,
+    line_width=DEFAULT_LINE_WIDTH,
+) -> go.Figure:
     figure = make_subplots(rows=2, cols=2, subplot_titles=[m[0] for m in _METRICS])
 
     trace_specs = {
-        # Both models are drawn solid and thin: with up to 50 gases per model the
-        # dashes and markers turned the panels into noise, and the colour alone
+        # Both models are drawn solid: with up to 50 gases per model the dashes
+        # and markers turned the panels into noise, and the colour alone
         # separates the two models well enough.
-        "GERG-2008": {"color": eos_colors["GERG-2008"], "width": 1.1},
-        "DETAIL": {"color": eos_colors["DETAIL"], "width": 1.1},
+        "GERG-2008": {"color": eos_colors["GERG-2008"], "width": line_width},
+        "DETAIL": {"color": eos_colors["DETAIL"], "width": line_width},
     }
 
     for index, (_, gerg_col, detail_col) in enumerate(_METRICS):
@@ -530,6 +540,15 @@ Deviations are reported as `100 × (Property_AGA8 − Property_REFPROP) / Proper
             value=DETAIL_COLOR,
             key="aga8_refprop_detail_color",
         )
+        line_width = st.slider(
+            "Line width",
+            min_value=0.5,
+            max_value=4.0,
+            value=DEFAULT_LINE_WIDTH,
+            step=0.1,
+            help="Applies to both GERG-2008 and DETAIL in the deviation plots.",
+            key="aga8_refprop_line_width",
+        )
         use_default_y_range = st.checkbox(
             "Fix y-axis range for deviation plots",
             value=True,
@@ -581,7 +600,9 @@ Deviations are reported as `100 × (Property_AGA8 − Property_REFPROP) / Proper
 
         results_df = load_results(selected_id)
         st.plotly_chart(
-            _create_single_figure(selected_id, results_df, eos_models, y_axis_range, eos_colors),
+            _create_single_figure(
+                selected_id, results_df, eos_models, y_axis_range, eos_colors, line_width
+            ),
             use_container_width=True,
         )
         with st.expander("Show result data"):
@@ -601,7 +622,14 @@ Deviations are reported as `100 × (Property_AGA8 − Property_REFPROP) / Proper
             all_results = load_all_results()
             results_by_station = {station_id: all_results[station_id] for station_id in selected_ids}
             st.plotly_chart(
-                _create_group_figure(results_by_station, eos_models, quality_filter, y_axis_range, eos_colors),
+                _create_group_figure(
+                    results_by_station,
+                    eos_models,
+                    quality_filter,
+                    y_axis_range,
+                    eos_colors,
+                    line_width,
+                ),
                 use_container_width=True,
             )
             with st.expander("Show gas summary"):
