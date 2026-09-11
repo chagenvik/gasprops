@@ -186,6 +186,11 @@ def _replace_composition_values(
     table_state_key = _table_state_key(key_prefix, source)
     if table_state_key in st.session_state:
         del st.session_state[table_state_key]
+    # Retire the widget key as well. Clearing only the server-side entry left the
+    # editor mounted with its own edit buffer intact, so a cell the user had typed
+    # into kept showing the old number after Set to zero, Normalize or an import.
+    generation_key = _editor_generation_key(key_prefix, source)
+    st.session_state[generation_key] = st.session_state.get(generation_key, 0) + 1
 
 
 def _set_zero_composition_values(key_prefix: str) -> None:
@@ -211,9 +216,20 @@ def _ss_key(key_prefix: str, *, source: str = _EDITABLE_SOURCE) -> str:
     return f"{key_prefix}_{source}_comp_values"
 
 
+def _editor_generation_key(key_prefix: str, source: str) -> str:
+    """Build the session-state key holding the editor's generation counter."""
+    return f"{key_prefix}_{source}_table_generation"
+
+
 def _table_key(key_prefix: str, source: str) -> str:
-    """Build the table widget key for a composition source."""
-    return f"{key_prefix}_{source}_table"
+    """Build the table widget key for a composition source.
+
+    The generation counter is part of the key so that replacing the values
+    programmatically hands st.data_editor a brand new widget rather than one that
+    still holds the user's pending cell edits.
+    """
+    generation = st.session_state.get(_editor_generation_key(key_prefix, source), 0)
+    return f"{key_prefix}_{source}_table_{generation}"
 
 
 def _table_state_key(key_prefix: str, source: str) -> str:
