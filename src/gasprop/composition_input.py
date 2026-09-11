@@ -39,18 +39,15 @@ _COMPOSITIONS_DIR = Path(__file__).resolve().parents[2] / "data" / "examples"
 #: Decimal places offered for the mol% column. Imported values keep their full
 #: precision behind a shortened display, but the cell editor inherits this format,
 #: so a value typed in by hand is stored with only these decimals.
-MIN_MOL_DECIMALS = 0
-MAX_MOL_DECIMALS = 6
+MOL_DECIMAL_OPTIONS = [0, 1, 2, 3, 4, 5, 6]
 DEFAULT_MOL_DECIMALS = 2
 
 
 def _mol_decimals_input(container, decimals_key: str) -> None:
-    """Render the mol% decimal stepper. Used next to the table's action buttons."""
-    container.number_input(
+    """Render the mol% decimal picker. Used next to the table's action buttons."""
+    container.selectbox(
         "Decimals",
-        min_value=MIN_MOL_DECIMALS,
-        max_value=MAX_MOL_DECIMALS,
-        step=1,
+        MOL_DECIMAL_OPTIONS,
         key=decimals_key,
         help=(
             "Decimal places shown in the table. Imported, example and saved "
@@ -594,9 +591,8 @@ def composition_input(key_prefix: str = "comp") -> dict | None:
         st.session_state[k] = values
 
 
-        # The decimal stepper only needs room for a single digit, so it gets a
-        # narrow column and the remainder is left empty.
-        action_cols = st.columns([2, 2, 1, 5])
+        # Wide enough that the "Decimals" label stays on one line.
+        action_cols = st.columns([2, 2, 2, 4])
         if action_cols[0].button("Set to zero", key=f"{key_prefix}_set_zero", help="Set all mole-percent values to zero"):
             _set_zero_composition_values(key_prefix)
             st.rerun()
@@ -605,7 +601,7 @@ def composition_input(key_prefix: str = "comp") -> dict | None:
             st.rerun()
         _mol_decimals_input(action_cols[2], decimals_key)
     else:
-        caption_col, decimals_col = st.columns([6, 1])
+        caption_col, decimals_col = st.columns([4, 2])
         caption_col.caption("Example compositions are shown read-only.")
         _mol_decimals_input(decimals_col, decimals_key)
 
