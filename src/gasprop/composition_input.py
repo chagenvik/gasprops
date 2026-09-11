@@ -36,6 +36,11 @@ from utils.session_fluids_ui import (
 
 _COMPOSITIONS_DIR = Path(__file__).resolve().parents[2] / "data" / "examples"
 
+#: Decimal places offered for the mol% column. Display only — the stored values
+#: keep full precision, so a trace component shown as 0.00 is still exact.
+MOL_DECIMAL_OPTIONS = [0, 1, 2, 3, 4, 5, 6]
+DEFAULT_MOL_DECIMALS = 2
+
 STD_COMPONENTS: dict[str, str] = {
     "N2":   "Nitrogen",
     "CO2":  "Carbon dioxide",
@@ -559,6 +564,13 @@ def composition_input(key_prefix: str = "comp") -> dict | None:
 
     base_df = st.session_state[table_state_key]
     editor_key = _table_key(key_prefix, source)
+    # The decimal control is rendered below the table, but its value is needed to
+    # build the column format above it. Reading session state first lets the widget
+    # sit where it belongs in the layout.
+    decimals_key = f"{key_prefix}_mol_decimals"
+    # 0 is a valid choice, so test for None rather than relying on truthiness.
+    stored_decimals = st.session_state.get(decimals_key)
+    decimals = DEFAULT_MOL_DECIMALS if stored_decimals is None else int(stored_decimals)
 
     # Pre-read accumulated edit deltas to get an early draft of values (used for
     # button enable/disable logic below).  The returned DataFrame from
@@ -583,12 +595,23 @@ def composition_input(key_prefix: str = "comp") -> dict | None:
                 "Mol %",
                 min_value=0.0,
                 max_value=100.0,
-                step=0.01,
-                format="%.2f",
+                step=10.0**-decimals,
+                format=f"%.{decimals}f",
                 width="small",
             ),
         },
         num_rows="fixed",
+    )
+
+    st.segmented_control(
+        "Decimals shown",
+        MOL_DECIMAL_OPTIONS,
+        default=decimals,
+        key=decimals_key,
+        help=(
+            "Display only. Values are always stored and calculated at full precision, "
+            "so trace components stay intact even when shown as 0."
+        ),
     )
 
     if not is_example_source:
