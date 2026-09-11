@@ -56,7 +56,11 @@ _METRICS = [
     ("Compressibility factor", "GERG_Z_rel_dev", "DETAIL_Z_rel_dev"),
     ("Isentropic exponent", "GERG_kappa_rel_dev", "DETAIL_kappa_rel_dev"),
 ]
-_AXIS_POSITIONS = [(1, 1), (1, 2), (2, 1), (2, 2)]
+_AXIS_POSITIONS = [(1, 1), (2, 1), (3, 1), (4, 1)]
+# The four metrics are stacked in a single column so each panel gets the full
+# width of the container. Height is per row rather than for the whole figure.
+_PLOT_ROW_HEIGHT = 340
+_PLOT_VERTICAL_SPACING = 0.05
 _SCATTER_STATISTICS = ["At selected pressure", "Maximum absolute", "Maximum", "Minimum", "Mean"]
 _DEFAULT_SCATTER_X_AXIS = "C3"
 _DEFAULT_SCATTER_EOS = "GERG-2008"
@@ -157,15 +161,26 @@ def load_all_results() -> dict[str, pd.DataFrame]:
     return {csv_path.stem: pd.read_csv(csv_path) for csv_path in sorted(RESULTS_DIR.glob("*.csv"))}
 
 
+def _stacked_subplots() -> go.Figure:
+    return make_subplots(
+        rows=len(_METRICS),
+        cols=1,
+        subplot_titles=[m[0] for m in _METRICS],
+        vertical_spacing=_PLOT_VERTICAL_SPACING,
+    )
+
+
 def _apply_axis_styling(figure: go.Figure, y_axis_range) -> go.Figure:
     figure.update_xaxes(
-        title_text="Pressure [bara]",
+        title_text="",
         showgrid=True,
         gridcolor="rgba(120, 120, 120, 0.30)",
         zeroline=False,
         tickmode="linear",
         dtick=25,
     )
+    # Every panel keeps its ticks, but only the bottom one repeats the label.
+    figure.update_xaxes(title_text="Pressure [bara]", row=len(_METRICS), col=1)
     figure.update_yaxes(
         title_text="Relative deviation [%]",
         showgrid=True,
@@ -187,7 +202,7 @@ def _create_single_figure(
         "GERG-2008": {"color": eos_colors["GERG-2008"], "gerg": True},
         "DETAIL": {"color": eos_colors["DETAIL"], "gerg": False},
     }
-    figure = make_subplots(rows=2, cols=2, subplot_titles=[m[0] for m in _METRICS])
+    figure = _stacked_subplots()
 
     for eos_name in eos_models:
         is_gerg = trace_map[eos_name]["gerg"]
@@ -210,7 +225,7 @@ def _create_single_figure(
 
     figure.update_layout(
         title=f"{station_id} — all pressure points",
-        height=850,
+        height=_PLOT_ROW_HEIGHT * len(_METRICS),
         template="plotly_white",
     )
     return _apply_axis_styling(figure, y_axis_range)
@@ -224,7 +239,7 @@ def _create_group_figure(
     eos_colors,
     line_width=DEFAULT_LINE_WIDTH,
 ) -> go.Figure:
-    figure = make_subplots(rows=2, cols=2, subplot_titles=[m[0] for m in _METRICS])
+    figure = _stacked_subplots()
 
     trace_specs = {
         # Both models are drawn solid: with up to 50 gases per model the dashes
@@ -272,7 +287,11 @@ def _create_group_figure(
                 col=col,
             )
 
-    figure.update_layout(title=title_label, height=900, template="plotly_white")
+    figure.update_layout(
+        title=title_label,
+        height=_PLOT_ROW_HEIGHT * len(_METRICS),
+        template="plotly_white",
+    )
     return _apply_axis_styling(figure, y_axis_range)
 
 
