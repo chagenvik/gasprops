@@ -591,19 +591,23 @@ def composition_input(key_prefix: str = "comp") -> dict | None:
         st.session_state[k] = values
 
 
-        # Buttons on the left, decimal picker pushed to the right edge of the table.
-        action_cols = st.columns([2, 2, 4, 2])
-        if action_cols[0].button("Set to zero", key=f"{key_prefix}_set_zero", help="Set all mole-percent values to zero"):
-            _set_zero_composition_values(key_prefix)
-            st.rerun()
-        if action_cols[1].button("Normalize", key=f"{key_prefix}_normalize", help="Scale mole-percent values to sum to 100"):
-            _normalize_current_composition_values(key_prefix, values)
-            st.rerun()
-        _mol_decimals_input(action_cols[3], decimals_key)
-    else:
-        caption_col, decimals_col = st.columns([4, 2])
-        caption_col.caption("Example compositions are shown read-only.")
-        _mol_decimals_input(decimals_col, decimals_key)
+    # This row is laid out identically for both sources so the decimal picker keeps
+    # a fixed position in the element tree. Rendering the same widget key under two
+    # differently shaped column layouts made Streamlit leave a stale duplicate
+    # behind when the example-gas toggle switched between them.
+    left_col, decimals_col = st.columns([8, 2])
+    with left_col:
+        if not is_example_source:
+            zero_col, normalize_col, _spacer = st.columns([1, 1, 2])
+            if zero_col.button("Set to zero", key=f"{key_prefix}_set_zero", help="Set all mole-percent values to zero"):
+                _set_zero_composition_values(key_prefix)
+                st.rerun()
+            if normalize_col.button("Normalize", key=f"{key_prefix}_normalize", help="Scale mole-percent values to sum to 100"):
+                _normalize_current_composition_values(key_prefix, values)
+                st.rerun()
+        else:
+            st.caption("Example compositions are shown read-only.")
+    _mol_decimals_input(decimals_col, decimals_key)
 
     total = sum(values.values())
     if total == 0.0:
