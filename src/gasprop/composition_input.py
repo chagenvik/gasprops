@@ -591,15 +591,15 @@ def composition_input(key_prefix: str = "comp") -> dict | None:
         st.session_state[k] = values
 
 
-        # Wide enough that the "Decimals" label stays on one line.
-        action_cols = st.columns([2, 2, 2, 4])
+        # Buttons on the left, decimal picker pushed to the right edge of the table.
+        action_cols = st.columns([2, 2, 4, 2])
         if action_cols[0].button("Set to zero", key=f"{key_prefix}_set_zero", help="Set all mole-percent values to zero"):
             _set_zero_composition_values(key_prefix)
             st.rerun()
         if action_cols[1].button("Normalize", key=f"{key_prefix}_normalize", help="Scale mole-percent values to sum to 100"):
             _normalize_current_composition_values(key_prefix, values)
             st.rerun()
-        _mol_decimals_input(action_cols[2], decimals_key)
+        _mol_decimals_input(action_cols[3], decimals_key)
     else:
         caption_col, decimals_col = st.columns([4, 2])
         caption_col.caption("Example compositions are shown read-only.")
