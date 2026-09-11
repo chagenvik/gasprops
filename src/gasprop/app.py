@@ -68,7 +68,7 @@ def tab_nth_child_selector(labels: tuple[str, ...], suffix: str = "") -> str:
     """
     order = list(VIEW_MAP.keys())
     selectors = [
-        f'[data-testid="stTabs"] [data-baseweb="tab"]:nth-child({order.index(label) + 1}){suffix}'
+        f'[data-testid="stTabs"] [data-testid="stTab"]:nth-child({order.index(label) + 1}){suffix}'
         for label in labels
         if label in order
     ]
@@ -149,14 +149,14 @@ def run_app() -> None:
             color: #194f73;
         }
 
-        [data-testid="stTabs"] [data-baseweb="tab-list"] {
+        [data-testid="stTabs"] [role="tablist"] {
             flex-wrap: wrap;
             gap: 0.4rem;
             row-gap: 0.55rem;
             overflow: visible;
             height: auto;
         }
-        [data-testid="stTabs"] [data-baseweb="tab"] {
+        [data-testid="stTabs"] [data-testid="stTab"] {
             border-radius: 999px;
             border: 1px solid rgba(8, 88, 140, 0.16);
             background: rgba(255, 255, 255, 0.85);
@@ -181,11 +181,14 @@ def run_app() -> None:
             border-color: rgba(8, 114, 180, 0.45);
             box-shadow: 0 8px 18px rgba(27, 125, 183, 0.25);
         }
-        /* Streamlit's sliding underline only tracks horizontal position, so on a
-           wrapped tab bar it sits under the bottom row no matter which tab is
-           selected. The filled pill already marks the selection. */
+        /* Streamlit's sliding underline only tracked horizontal position, so on a
+           wrapped tab bar it sat under the bottom row no matter which tab was
+           selected. The react-aria tabs in 1.63 no longer render these elements,
+           but the rule is kept so the filled pill stays the only selection marker
+           if an underline or bottom border reappears. */
         [data-testid="stTabs"] [data-baseweb="tab-highlight"],
-        [data-testid="stTabs"] [data-baseweb="tab-border"] {
+        [data-testid="stTabs"] [data-baseweb="tab-border"],
+        [data-testid="stTabs"] [role="tablist"]::after {
             display: none;
         }
 
@@ -260,7 +263,7 @@ def run_app() -> None:
                 padding-left: 1rem;
                 padding-right: 1rem;
             }
-            [data-testid="stTabs"] [data-baseweb="tab"] {
+            [data-testid="stTabs"] [data-testid="stTab"] {
                 /* Too narrow for a fixed grid, so fall back to natural widths. */
                 flex: 0 0 auto;
                 padding: 0.35rem 0.7rem;
@@ -281,8 +284,8 @@ def run_app() -> None:
             [data-testid="stExpander"],
             [data-testid="stAlert"],
             [data-testid="stMetric"],
-            [data-baseweb="input"] > div,
-            [data-baseweb="select"] > div,
+            [data-testid="stNumberInputContainer"],
+            [data-testid="stSelectbox"] > div,
             .stNumberInput input,
             .stTextInput input,
             .stTextArea textarea {
