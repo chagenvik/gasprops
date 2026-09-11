@@ -326,7 +326,7 @@ def run_app() -> None:
     _render_terms_notice()
 
     st.info(
-        "**Calculation scope:** Most tabs use AGA8 DETAIL/GERG and are valid for single-phase gas within the AGA8 component set. "
+        "**Calculation scope:** Most tabs use AGA8 DETAIL/GERG and are only valid for single-phase gas within the AGA8 component set. "
         "**Flash Calculation** and **Phase Envelope** use NeqSim workflows for phase-behavior analysis, and "
         "**DP Flow Meter** and **Flow Converter** cover flow metering.",
         icon="ℹ️",
