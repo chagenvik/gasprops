@@ -346,7 +346,8 @@ Computes thermodynamic and transport properties using two calculation engines:
 
 **How to use**
 1. Enter the gas composition in the **Gas Composition** table (units: mol%).
-   Use **Set to zero**, **Normalize** or **Distribute C6+** below the table to edit it quickly.
+   Use **Set to zero** or **Normalize** below the table to edit it quickly, and the
+   **Decimals** stepper to change how many decimals are shown.
 2. Import and export compositions with **Import composition (CSV)** and **Export composition (CSV)**.
    Turn on **Use example gases** to load a bundled example, or reload a previously stored
    composition via *Use saved fluid (session)*.
