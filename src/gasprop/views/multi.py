@@ -158,6 +158,7 @@ def render(composition: dict | None) -> None:
     mode = st.radio(
         "Input mode",
         options=["Input table", "Pressure/temperature ranges"],
+        index=1,
         horizontal=True,
         key="multi_input_mode",
     )
