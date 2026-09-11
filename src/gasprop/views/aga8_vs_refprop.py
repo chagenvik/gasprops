@@ -43,6 +43,10 @@ GROUP_FILTER_OPTIONS = ["All quality ranges", *QUALITY_GROUPS, *COMPOSITE_FILTER
 GERG_COLOR = "#0000a2"
 DETAIL_COLOR = "#E69F00"
 DEFAULT_LINE_WIDTH = 1.8
+#: Plotly renders the spline in the browser from the same points, so this smooths
+#: the 10 bara sampling without adding any interpolated data.
+LINE_SHAPE = "spline"
+LINE_SMOOTHING = 1.0
 
 COMPONENT_ORDER = [
     "N2", "CO2", "C1", "C2", "C3", "iC4", "nC4", "iC5", "nC5",
@@ -228,7 +232,12 @@ def _create_single_figure(
                     name=eos_name,
                     legendgroup=eos_name,
                     showlegend=index == 0,
-                    line={"color": trace_map[eos_name]["color"], "width": line_width},
+                    line={
+                        "color": trace_map[eos_name]["color"],
+                        "width": line_width,
+                        "shape": LINE_SHAPE,
+                        "smoothing": LINE_SMOOTHING,
+                    },
                 ),
                 row=row,
                 col=col,
@@ -258,8 +267,18 @@ def _create_group_figure(
         # Both models are drawn solid: with up to 50 gases per model the dashes
         # and markers turned the panels into noise, and the colour alone
         # separates the two models well enough.
-        "GERG-2008": {"color": eos_colors["GERG-2008"], "width": line_width},
-        "DETAIL": {"color": eos_colors["DETAIL"], "width": line_width},
+        "GERG-2008": {
+            "color": eos_colors["GERG-2008"],
+            "width": line_width,
+            "shape": LINE_SHAPE,
+            "smoothing": LINE_SMOOTHING,
+        },
+        "DETAIL": {
+            "color": eos_colors["DETAIL"],
+            "width": line_width,
+            "shape": LINE_SHAPE,
+            "smoothing": LINE_SMOOTHING,
+        },
     }
 
     for index, (_, gerg_col, detail_col) in enumerate(metrics):
