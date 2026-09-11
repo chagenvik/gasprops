@@ -110,6 +110,21 @@ def test_volume_basis_uses_density_conversion():
     assert result.density2_used_kg_m3 is not None
 
 
+def test_volume_basis_rejects_zero_absolute_pressure_before_aga8_call():
+    with pytest.raises(ValueError, match="greater than zero on an absolute-pressure basis"):
+        mix_logic.mix_two(
+            {"C1": 100.0},
+            {"CO2": 100.0},
+            fluid1_name="A",
+            fluid2_name="B",
+            basis="volume",
+            amount1=10.0,
+            amount2=10.0,
+            p_barg=-1.01325,
+            t_c=20.0,
+        )
+
+
 def test_fluid_a_fluid_b_mole_50_50_reference_case():
     result = mix_logic.mix_two(
         FLUID_A,

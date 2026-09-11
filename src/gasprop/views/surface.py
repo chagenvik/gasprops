@@ -13,6 +13,8 @@ import plotly.graph_objects as go
 import pvtlib
 import streamlit as st
 
+from ..operating_conditions import inclusive_range_count, operating_condition_error
+
 PROPERTIES = {
     "rho":   ("Mass Density",              "kg/m³"),
     "w":     ("Speed of Sound",            "m/s"),
@@ -101,17 +103,32 @@ def render(composition: dict | None) -> None:
     if generate:
         if p_min >= p_max:
             st.error("Pressure min must be less than max.")
-            st.stop()
+            return
         if t_min >= t_max:
             st.error("Temperature min must be less than max.")
-            st.stop()
+            return
+        input_error = operating_condition_error(
+            p_min, pressure_unit, t_min, temperature_unit
+        )
+        if input_error:
+            st.error(input_error)
+            return
+
+        p_count = inclusive_range_count(p_min, p_max, p_step)
+        t_count = inclusive_range_count(t_min, t_max, t_step)
+        if p_count is None or t_count is None or p_count * t_count > 2000:
+            point_count = (
+                "unsafe"
+                if p_count is None or t_count is None
+                else f"{p_count * t_count} points"
+            )
+            st.error(
+                f"Grid too large ({point_count}). Reduce the range or increase the step size."
+            )
+            return
 
         pressures    = np.arange(p_min, p_max + p_step * 0.5, p_step)
         temperatures = np.arange(t_min, t_max + t_step * 0.5, t_step)
-
-        if len(pressures) * len(temperatures) > 2000:
-            st.error(f"Grid too large ({len(pressures) * len(temperatures)} points). Reduce the range or increase the step size.")
-            st.stop()
 
         with st.spinner("Calculating…"):
             try:
@@ -119,9 +136,11 @@ def render(composition: dict | None) -> None:
                     composition, pressures, temperatures,
                     prop_key, equation, pressure_unit, temperature_unit,
                 )
-            except Exception as exc:
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except BaseException as exc:
                 st.error(f"Calculation error: {exc}")
-                st.stop()
+                return
 
         st.session_state["surf_cache"] = {
             "z_grids":        {prop_key: z},

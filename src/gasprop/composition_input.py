@@ -186,6 +186,11 @@ def _replace_composition_values(
     table_state_key = _table_state_key(key_prefix, source)
     if table_state_key in st.session_state:
         del st.session_state[table_state_key]
+    # Retire the widget key as well. Clearing only the server-side entry left the
+    # editor mounted with its own edit buffer intact, so a cell the user had typed
+    # into kept showing the old number after Set to zero, Normalize or an import.
+    generation_key = _editor_generation_key(key_prefix, source)
+    st.session_state[generation_key] = st.session_state.get(generation_key, 0) + 1
 
 
 def _set_zero_composition_values(key_prefix: str) -> None:
@@ -211,9 +216,20 @@ def _ss_key(key_prefix: str, *, source: str = _EDITABLE_SOURCE) -> str:
     return f"{key_prefix}_{source}_comp_values"
 
 
+def _editor_generation_key(key_prefix: str, source: str) -> str:
+    """Build the session-state key holding the editor's generation counter."""
+    return f"{key_prefix}_{source}_table_generation"
+
+
 def _table_key(key_prefix: str, source: str) -> str:
-    """Build the table widget key for a composition source."""
-    return f"{key_prefix}_{source}_table"
+    """Build the table widget key for a composition source.
+
+    The generation counter is part of the key so that replacing the values
+    programmatically hands st.data_editor a brand new widget rather than one that
+    still holds the user's pending cell edits.
+    """
+    generation = st.session_state.get(_editor_generation_key(key_prefix, source), 0)
+    return f"{key_prefix}_{source}_table_{generation}"
 
 
 def _table_state_key(key_prefix: str, source: str) -> str:
@@ -591,19 +607,23 @@ def composition_input(key_prefix: str = "comp") -> dict | None:
         st.session_state[k] = values
 
 
-        # Buttons on the left, decimal picker pushed to the right edge of the table.
-        action_cols = st.columns([2, 2, 4, 2])
-        if action_cols[0].button("Set to zero", key=f"{key_prefix}_set_zero", help="Set all mole-percent values to zero"):
-            _set_zero_composition_values(key_prefix)
-            st.rerun()
-        if action_cols[1].button("Normalize", key=f"{key_prefix}_normalize", help="Scale mole-percent values to sum to 100"):
-            _normalize_current_composition_values(key_prefix, values)
-            st.rerun()
-        _mol_decimals_input(action_cols[3], decimals_key)
-    else:
-        caption_col, decimals_col = st.columns([4, 2])
-        caption_col.caption("Example compositions are shown read-only.")
-        _mol_decimals_input(decimals_col, decimals_key)
+    # This row is laid out identically for both sources so the decimal picker keeps
+    # a fixed position in the element tree. Rendering the same widget key under two
+    # differently shaped column layouts made Streamlit leave a stale duplicate
+    # behind when the example-gas toggle switched between them.
+    left_col, decimals_col = st.columns([8, 2])
+    with left_col:
+        if not is_example_source:
+            zero_col, normalize_col, _spacer = st.columns([1, 1, 2])
+            if zero_col.button("Set to zero", key=f"{key_prefix}_set_zero", help="Set all mole-percent values to zero"):
+                _set_zero_composition_values(key_prefix)
+                st.rerun()
+            if normalize_col.button("Normalize", key=f"{key_prefix}_normalize", help="Scale mole-percent values to sum to 100"):
+                _normalize_current_composition_values(key_prefix, values)
+                st.rerun()
+        else:
+            st.caption("Example compositions are shown read-only.")
+    _mol_decimals_input(decimals_col, decimals_key)
 
     total = sum(values.values())
     if total == 0.0:

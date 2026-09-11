@@ -15,6 +15,8 @@ pressure and the temperature.
 
 from __future__ import annotations
 
+import math
+
 import streamlit as st
 
 PRESSURE_UNITS: tuple[str, ...] = ("bara", "barg", "kPa", "MPa")
@@ -35,6 +37,43 @@ def temperature_label(unit: str) -> str:
 def temperature_floor(unit: str) -> float:
     """Absolute zero expressed in the given temperature unit."""
     return -273.15 if unit == "C" else 0.0
+
+
+def operating_condition_error(
+    pressure: float,
+    pressure_unit: str,
+    temperature: float,
+    temperature_unit: str,
+) -> str | None:
+    """Return a clear error for non-physical P/T input, otherwise ``None``."""
+    pressure_f = float(pressure)
+    temperature_f = float(temperature)
+    pressure_bara = {
+        "bara": pressure_f,
+        "barg": pressure_f + 1.01325,
+        "kPa": pressure_f / 100.0,
+        "MPa": pressure_f * 10.0,
+    }.get(pressure_unit)
+    temperature_k = (
+        temperature_f + 273.15 if temperature_unit == "C" else temperature_f
+    )
+
+    if pressure_bara is None or not math.isfinite(pressure_bara) or pressure_bara <= 0.0:
+        return "Pressure must be finite and greater than zero on an absolute-pressure basis."
+    if not math.isfinite(temperature_k) or temperature_k <= 0.0:
+        return "Temperature must be finite and greater than absolute zero."
+    return None
+
+
+def inclusive_range_count(start: float, stop: float, step: float) -> int | None:
+    """Return the size of the app's inclusive numeric range, or ``None`` if unsafe."""
+    values = (float(start), float(stop), float(step))
+    if not all(math.isfinite(value) for value in values) or step <= 0.0 or stop < start:
+        return None
+    intervals = (stop - start) / step
+    if not math.isfinite(intervals) or intervals > 1_000_000_000:
+        return None
+    return math.floor(intervals + 0.5) + 1
 
 
 def pressure_input(

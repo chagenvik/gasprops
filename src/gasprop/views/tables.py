@@ -16,6 +16,8 @@ import pandas as pd
 import plotly.graph_objects as go
 import pvtlib
 import streamlit as st
+
+from ..operating_conditions import inclusive_range_count, operating_condition_error
 from matplotlib.backends.backend_pdf import PdfPages
 
 
@@ -237,14 +239,22 @@ def render(composition: dict | None):
     if t_min >= t_max:
         st.error("Temperature min must be less than max.")
         return
+    input_error = operating_condition_error(
+        p_min, pressure_unit, t_min, temperature_unit
+    )
+    if input_error:
+        st.error(input_error)
+        return
+
+    p_count = inclusive_range_count(p_min, p_max, p_step)
+    t_count = inclusive_range_count(t_min, t_max, t_step)
+    if p_count is None or t_count is None or p_count * t_count > 2000:
+        point_count = "unsafe" if p_count is None or t_count is None else f"{p_count * t_count} points"
+        st.error(f"Grid too large ({point_count}). Reduce the range or increase the step size.")
+        return
 
     pressures    = np.arange(p_min, p_max    + p_step * 0.5, p_step)
     temperatures = np.arange(t_min, t_max    + t_step * 0.5, t_step)
-
-    n_calcs = len(pressures) * len(temperatures)
-    if n_calcs > 2000:
-        st.error(f"Grid too large ({n_calcs} points). Reduce the range or increase the step size.")
-        return
 
     non_zero = {k: v for k, v in composition.items() if v > 0}
     if len(non_zero) == 1:
@@ -260,7 +270,9 @@ def render(composition: dict | None):
             composition, pressures, temperatures,
             selected_props, equation, pressure_unit, temperature_unit,
         )
-    except Exception as exc:
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except BaseException as exc:
         st.error(f"Calculation error: {exc}")
         progress.empty()
         return
