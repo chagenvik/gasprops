@@ -13,6 +13,7 @@ import streamlit as st
 from ..composition_input import COMPONENTS as MAIN_TAB_COMPONENTS
 from ..composition_input import export_composition_values_to_canonical_csv
 from ..domain import NEQSIM_NAMES as _NEQSIM_NAMES
+from ..operating_conditions import inclusive_range_count
 from utils.session_fluids import FORMAT_AGA8
 from utils.session_fluids_ui import render_temporary_save_button
 
@@ -535,10 +536,15 @@ def render(composition: dict | None) -> None:
             st.error("Temperature min must be lower than temperature max.")
             return
 
-        points = _build_points_from_range(p_min, p_max, p_step, t_min, t_max, t_step)
-        if len(points) > 3000:
-            st.error(f"Range produces too many points ({len(points)}). Reduce ranges or increase step sizes.")
+        p_count = inclusive_range_count(p_min, p_max, p_step)
+        t_count = inclusive_range_count(t_min, t_max, t_step)
+        if p_count is None or t_count is None or p_count * t_count > 3000:
+            point_count = "an unsafe number of" if p_count is None or t_count is None else f"{p_count * t_count}"
+            st.error(
+                f"Range produces {point_count} points. Reduce ranges or increase step sizes."
+            )
             return
+        points = _build_points_from_range(p_min, p_max, p_step, t_min, t_max, t_step)
 
     cached = st.session_state.get(_STATE_FLASH)
     has_cache = cached is not None

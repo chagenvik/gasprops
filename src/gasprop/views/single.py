@@ -10,6 +10,7 @@ import streamlit as st
 from ..composition_input import COMPONENTS as MAIN_TAB_COMPONENTS
 from ..operating_conditions import (
     aga8_equation_input,
+    operating_condition_error,
     pressure_input,
     temperature_input,
 )
@@ -66,6 +67,13 @@ def render(composition: dict | None):
     if not calculate:
         return
 
+    input_error = operating_condition_error(
+        pressure, pressure_unit, temperature, temperature_unit
+    )
+    if input_error:
+        st.error(input_error)
+        return
+
     try:
         aga8 = pvtlib.AGA8(equation)
         result = aga8.calculate_from_PT(
@@ -75,7 +83,9 @@ def render(composition: dict | None):
             pressure_unit=pressure_unit,
             temperature_unit=temperature_unit,
         )
-    except Exception as exc:
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except BaseException as exc:
         st.error(f"Calculation failed: {exc}")
         return
 

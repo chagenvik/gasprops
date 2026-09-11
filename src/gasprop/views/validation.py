@@ -174,7 +174,7 @@ def render(composition: dict | None) -> None:
 
     styled = df.style.map(color_status, subset=["DETAIL", "GERG"])
     styled = styled.apply(lambda row: [color_actual(row) if col == "Actual" else "" for col in df.columns], axis=1)
-    st.dataframe(styled, use_container_width=True, hide_index=True, height=35 + (len(table_rows) * 35))
+    st.dataframe(styled, width="stretch", hide_index=True, height=35 + (len(table_rows) * 35))
 
     st.markdown("---")
     _display_validation_summary(composition, pressure, temperature)

@@ -16,6 +16,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from ..domain import NEQSIM_NAMES as _NEQSIM_NAMES
+from ..operating_conditions import operating_condition_error
 
 _STATE_GRID = "gp_eos_cmp_grid"
 _STATE_CCT  = "gp_eos_cmp_cct"
@@ -275,6 +276,19 @@ phase-behavior checks, use the **Phase Envelope** or **Flash Calculation** tabs.
             # Use cricondentherm to set temperature
             temperature = cct_val + t_margin if t_unit == "C" else cct_val + t_margin + 273.15
         
+        input_error = operating_condition_error(
+            p_min, p_unit, temperature, t_unit
+        )
+        if input_error:
+            st.error(input_error)
+            return
+
+        # The first run in cricondentherm mode replaces the placeholder temperature
+        # after the original cache key was built. Store the result under the actual
+        # calculated temperature so it remains visible on the next rerun.
+        grid_key = _grid_key(
+            composition, p_min, p_max, n_pts, temperature, p_unit, t_unit
+        )
         pressures = list(np.linspace(p_min, p_max, n_pts))
         with st.spinner("Calculating GERG-2008 and DETAIL properties…"):
             try:
@@ -287,7 +301,9 @@ phase-behavior checks, use the **Phase Envelope** or **Flash Calculation** tabs.
                     "t_unit": t_unit,
                     "p_unit": p_unit,
                 }
-            except Exception as exc:
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except BaseException as exc:
                 st.error(f"Comparison calculation failed: {exc}")
                 return
 
@@ -360,7 +376,7 @@ phase-behavior checks, use the **Phase Envelope** or **Flash Calculation** tabs.
             template="plotly_white",
             legend=dict(yanchor="top", y=0.99, xanchor="left", x=1.02),
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     else:
         for i, prop in enumerate(selected_props):
@@ -400,4 +416,4 @@ phase-behavior checks, use the **Phase Envelope** or **Flash Calculation** tabs.
                     bgcolor="rgba(255,255,255,0.7)",
                 )],
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")

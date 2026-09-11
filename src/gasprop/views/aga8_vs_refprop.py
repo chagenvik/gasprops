@@ -485,6 +485,10 @@ def _create_scatter_figure(
 
 def render(composition: dict | None) -> None:
     """Render the AGA8 vs REFPROP viewer."""
+    st.session_state.setdefault("aga8_refprop_fix_y", True)
+    st.session_state.setdefault("aga8_refprop_ymin", -0.6)
+    st.session_state.setdefault("aga8_refprop_ymax", 0.6)
+
     st.subheader("AGA8 vs REFPROP — results from Global Flow Measurement Workshop 2026 paper")
     st.markdown(
         """
@@ -613,16 +617,15 @@ Deviations are reported as `100 × (Property_AGA8 − Property_REFPROP) / Proper
         )
         use_default_y_range = st.checkbox(
             "Fix y-axis range for deviation plots",
-            value=True,
             key="aga8_refprop_fix_y",
         )
         if use_default_y_range:
             y_min_col, y_max_col = st.columns(2)
             y_axis_min = y_min_col.number_input(
-                "Y-axis min", value=-0.6, step=0.1, format="%.2f", key="aga8_refprop_ymin"
+                "Y-axis min", step=0.1, format="%.2f", key="aga8_refprop_ymin"
             )
             y_axis_max = y_max_col.number_input(
-                "Y-axis max", value=0.6, step=0.1, format="%.2f", key="aga8_refprop_ymax"
+                "Y-axis max", step=0.1, format="%.2f", key="aga8_refprop_ymax"
             )
 
     if not eos_models:
@@ -665,10 +668,10 @@ Deviations are reported as `100 × (Property_AGA8 − Property_REFPROP) / Proper
             _create_single_figure(
                 selected_id, results_df, eos_models, y_axis_range, eos_colors, line_width, metrics
             ),
-            use_container_width=True,
+            width="stretch",
         )
         with st.expander("Show result data"):
-            st.dataframe(results_df, use_container_width=True)
+            st.dataframe(results_df, width="stretch")
     else:
         selected_ids = st.multiselect(
             "Gases",
@@ -693,12 +696,12 @@ Deviations are reported as `100 × (Property_AGA8 − Property_REFPROP) / Proper
                     line_width,
                     metrics,
                 ),
-                use_container_width=True,
+                width="stretch",
             )
             with st.expander("Show gas summary"):
                 st.dataframe(
                     filtered_df[filtered_df["id"].isin(selected_ids)],
-                    use_container_width=True,
+                    width="stretch",
                     hide_index=True,
                 )
 
@@ -720,7 +723,7 @@ Deviations are reported as `100 × (Property_AGA8 − Property_REFPROP) / Proper
             )
             st.dataframe(
                 _composition_wide_dataframe(composition_table_ids),
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )
     else:
@@ -730,7 +733,7 @@ Deviations are reported as `100 × (Property_AGA8 − Property_REFPROP) / Proper
             composition_options,
             key=f"aga8_refprop_composition_id_{include_klab}_{quality_filter}_{view_mode}",
         )
-        st.dataframe(_composition_dataframe(composition_id), use_container_width=True, hide_index=True)
+        st.dataframe(_composition_dataframe(composition_id), width="stretch", hide_index=True)
         st.metric("C6+ (nC6…nC10)", f"{_c6_plus_mol_pct(composition_id):.4f} mol %")
 
         selected_composition = _load_compositions()[composition_id]
@@ -825,7 +828,7 @@ Deviations are reported as `100 × (Property_AGA8 − Property_REFPROP) / Proper
         _create_scatter_figure(
             scatter_df, _scatter_x_axis_label(scatter_x_axis), scatter_y_label, scatter_color_by
         ),
-        use_container_width=True,
+        width="stretch",
     )
     with st.expander("Show scatter data"):
-        st.dataframe(scatter_df, use_container_width=True, hide_index=True)
+        st.dataframe(scatter_df, width="stretch", hide_index=True)

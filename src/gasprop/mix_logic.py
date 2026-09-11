@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import lru_cache
+import math
 from typing import Literal
 
 import numpy as np
@@ -58,6 +59,12 @@ def _mw_from_x(mole_fractions: np.ndarray) -> float:
 
 
 def _density_from_x(mole_fractions: np.ndarray, p_barg: float, t_c: float) -> float:
+    if not math.isfinite(float(p_barg)) or float(p_barg) <= -1.01325:
+        raise ValueError(
+            "Pressure must be finite and greater than zero on an absolute-pressure basis."
+        )
+    if not math.isfinite(float(t_c)) or float(t_c) <= -273.15:
+        raise ValueError("Temperature must be finite and greater than absolute zero.")
     composition = {
         name: float(x * 100.0)
         for name, x in zip(_COMPONENT_NAMES, mole_fractions)

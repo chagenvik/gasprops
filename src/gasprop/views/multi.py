@@ -15,6 +15,8 @@ from ..operating_conditions import (
     PRESSURE_UNITS,
     TEMPERATURE_UNITS,
     aga8_equation_input,
+    inclusive_range_count,
+    operating_condition_error,
     temperature_label,
 )
 
@@ -217,10 +219,15 @@ def render(composition: dict | None) -> None:
             st.error("Temperature min must be lower than temperature max.")
             return
 
-        points = _build_points_from_range(p_min, p_max, p_step, t_min, t_max, t_step)
-        if len(points) > 3000:
-            st.error(f"Range produces too many points ({len(points)}). Reduce ranges or increase step sizes.")
+        p_count = inclusive_range_count(p_min, p_max, p_step)
+        t_count = inclusive_range_count(t_min, t_max, t_step)
+        if p_count is None or t_count is None or p_count * t_count > 3000:
+            point_count = "an unsafe number of" if p_count is None or t_count is None else f"{p_count * t_count}"
+            st.error(
+                f"Range produces {point_count} points. Reduce ranges or increase step sizes."
+            )
             return
+        points = _build_points_from_range(p_min, p_max, p_step, t_min, t_max, t_step)
 
     cached = st.session_state.get(_STATE_MULTI)
     has_cache = cached is not None
@@ -243,6 +250,13 @@ def render(composition: dict | None) -> None:
             t_col = f"Temperature [{temp_label}]"
 
             for i, (p, t) in enumerate(points):
+                input_error = operating_condition_error(
+                    p, pressure_unit, t, temperature_unit
+                )
+                if input_error:
+                    errors.append(f"Row {i + 1} (P={p}, T={t}): {input_error}")
+                    progress.progress((i + 1) / n, text=f"Calculating … {i + 1}/{n}")
+                    continue
                 try:
                     res = aga8.calculate_from_PT(
                         composition=composition,
@@ -255,7 +269,9 @@ def render(composition: dict | None) -> None:
                     for key, (name, unit) in PROPERTIES.items():
                         record[f"{name} [{unit}]"] = res[key]
                     records.append(record)
-                except Exception as exc:
+                except (KeyboardInterrupt, SystemExit):
+                    raise
+                except BaseException as exc:
                     errors.append(f"Row {i + 1} (P={p}, T={t}): {exc}")
                 progress.progress((i + 1) / n, text=f"Calculating … {i + 1}/{n}")
 

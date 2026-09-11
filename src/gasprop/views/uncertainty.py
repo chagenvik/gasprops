@@ -23,6 +23,7 @@ from uncertaintylib.uncertainty_models import gas_composition as gc_models
 
 from ..operating_conditions import (
     aga8_equation_input,
+    operating_condition_error,
     pressure_input,
     temperature_input,
 )
@@ -82,6 +83,44 @@ _STATE_MC  = "gp_unc_mc_result"
 _STATE_INPUT = "gp_unc_input_snapshot"
 
 
+def _uncertainty_input_snapshot(
+    composition: dict,
+    unc_df: pd.DataFrame,
+    equation: str,
+    model_name: str,
+    p_mean: float,
+    p_unit: str,
+    p_abs: float,
+    p_rel: float,
+    t_mean: float,
+    t_unit: str,
+    t_abs: float,
+    t_rel: float,
+) -> tuple:
+    """Build a stable identity for every input that affects uncertainty results."""
+    composition_values = tuple(sorted((key, float(value)) for key, value in composition.items()))
+    uncertainty_values = tuple(
+        tuple(row)
+        for row in unc_df.astype(object).where(pd.notna(unc_df), None).itertuples(
+            index=False, name=None
+        )
+    )
+    return (
+        composition_values,
+        uncertainty_values,
+        equation,
+        model_name,
+        float(p_mean),
+        p_unit,
+        float(p_abs),
+        float(p_rel),
+        float(t_mean),
+        t_unit,
+        float(t_abs),
+        float(t_rel),
+    )
+
+
 def _make_calc_function(equation: str, p_unit: str, t_unit: str, comp_keys: list[str]):
     """Create an AGA8 calculation function for uncertainty propagation."""
     def _calc(input_dict: dict) -> dict:
@@ -89,6 +128,11 @@ def _make_calc_function(equation: str, p_unit: str, t_unit: str, comp_keys: list
         composition = {k: input_dict[k] for k in comp_keys if k in input_dict}
         pressure = input_dict["pressure"]
         temperature = input_dict["temperature"]
+        input_error = operating_condition_error(
+            pressure, p_unit, temperature, t_unit
+        )
+        if input_error:
+            raise ValueError(input_error)
         aga8 = pvtlib.AGA8(equation)
         result = aga8.calculate_from_PT(
             composition=composition,
@@ -187,7 +231,7 @@ def _render_standard_results(std_result: dict, selected_props: list[str]) -> Non
             "U% (k=2)": f"{std_result['U_perc'][prop]:.2g} %",
         })
     if rows:
-        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
 
     st.markdown("#### Uncertainty Contributions")
     st.caption(
@@ -224,7 +268,7 @@ def _render_standard_results(std_result: dict, selected_props: list[str]) -> Non
             height=380,
             margin=dict(l=50, r=20, t=50, b=80),
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
 
 def _render_mc_results(mc_df: pd.DataFrame, mc_stats: pd.DataFrame, selected_props: list[str]) -> None:
@@ -245,7 +289,7 @@ def _render_mc_results(mc_df: pd.DataFrame, mc_stats: pd.DataFrame, selected_pro
             "U% (k=2)": f"{s['std_dev_percent_k2']:.2g} %" if not math.isnan(float(s['std_dev_percent_k2'])) else "–",
         })
     if rows:
-        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
 
     st.markdown("#### Monte Carlo Distributions")
     histogram_bins = st.slider(
@@ -290,7 +334,7 @@ def _render_mc_results(mc_df: pd.DataFrame, mc_stats: pd.DataFrame, selected_pro
             margin=dict(l=50, r=20, t=50, b=60),
             showlegend=False,
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
 
 def render(composition: dict | None) -> None:
@@ -441,7 +485,7 @@ def render(composition: dict | None) -> None:
         )
         edited_df = st.data_editor(
             default_df,
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
             disabled=["Component", "mol% (mean)"],
             column_config={
@@ -474,10 +518,24 @@ def render(composition: dict | None) -> None:
             })
         preview_df = pd.DataFrame(preview_rows)
         st.caption(f"Compositional uncertainties from **{model_name}** (read-only). Set P/T uncertainties above.")
-        st.dataframe(preview_df, use_container_width=True, hide_index=True)
+        st.dataframe(preview_df, width="stretch", hide_index=True)
         unc_df = preview_df
 
     st.markdown("#### Run Analysis")
+    input_snapshot = _uncertainty_input_snapshot(
+        composition,
+        unc_df,
+        equation,
+        model_name,
+        p_mean,
+        p_unit,
+        p_abs,
+        p_rel,
+        temperature,
+        t_unit,
+        t_abs,
+        t_rel,
+    )
     col_std, col_mc, col_mc_n = st.columns([2, 2, 1])
     with col_std:
         run_std = st.button("▶ Run standard uncertainty (GUM)", type="primary", key="unc_run_std")
@@ -492,6 +550,12 @@ def render(composition: dict | None) -> None:
     calc_fn = _make_calc_function(equation, p_unit, t_unit, comp_keys)
 
     if run_std or run_mc:
+        input_error = operating_condition_error(
+            p_mean, p_unit, temperature, t_unit
+        )
+        if input_error:
+            st.error(input_error)
+            return
         try:
             if model_name == "Manual":
                 unc_input = build_uncertainty_input(
@@ -518,8 +582,11 @@ def render(composition: dict | None) -> None:
                     st.session_state[_STATE_STD] = {
                         "result": std_result,
                         "selected_props": selected_props,
+                        "input_snapshot": input_snapshot,
                     }
-                except Exception as exc:
+                except (KeyboardInterrupt, SystemExit):
+                    raise
+                except BaseException as exc:
                     st.error(f"Standard uncertainty calculation failed: {exc}")
 
         if run_mc:
@@ -533,14 +600,27 @@ def render(composition: dict | None) -> None:
                         "mc_stats": mc_stats,
                         "selected_props": selected_props,
                         "n": int(mc_n),
+                        "input_snapshot": input_snapshot,
                     }
-                except Exception as exc:
+                except (KeyboardInterrupt, SystemExit):
+                    raise
+                except BaseException as exc:
                     st.error(f"Monte Carlo simulation failed: {exc}")
 
     std_state = st.session_state.get(_STATE_STD)
     mc_state = st.session_state.get(_STATE_MC)
+    stale_results = (
+        (std_state is not None and std_state.get("input_snapshot") != input_snapshot)
+        or (mc_state is not None and mc_state.get("input_snapshot") != input_snapshot)
+    )
+    if std_state is not None and std_state.get("input_snapshot") != input_snapshot:
+        std_state = None
+    if mc_state is not None and mc_state.get("input_snapshot") != input_snapshot:
+        mc_state = None
 
     if std_state is None and mc_state is None:
+        if stale_results:
+            st.info("Uncertainty inputs changed. Run the analysis again to update the results.")
         return
 
     st.divider()

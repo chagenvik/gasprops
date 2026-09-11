@@ -26,6 +26,30 @@ def test_temperature_floor_is_absolute_zero_in_each_unit():
     assert oc.temperature_floor("K") == pytest.approx(0.0)
 
 
+def test_operating_conditions_reject_zero_absolute_pressure():
+    assert oc.operating_condition_error(0.0, "bara", 20.0, "C") == (
+        "Pressure must be finite and greater than zero on an absolute-pressure basis."
+    )
+
+
+def test_operating_conditions_reject_absolute_zero_temperature():
+    assert oc.operating_condition_error(1.0, "bara", 0.0, "K") == (
+        "Temperature must be finite and greater than absolute zero."
+    )
+
+
+def test_operating_conditions_accept_gauge_pressure_and_kelvin():
+    assert oc.operating_condition_error(0.0, "barg", 273.15, "K") is None
+
+
+def test_inclusive_range_count_rejects_an_overflowing_range():
+    assert oc.inclusive_range_count(0.0, 1e308, 0.01) is None
+
+
+def test_inclusive_range_count_matches_app_range_construction():
+    assert oc.inclusive_range_count(0.0, 1.0, 0.3) == 4
+
+
 def test_supported_units_and_equations():
     assert oc.PRESSURE_UNITS == ("bara", "barg", "kPa", "MPa")
     assert oc.TEMPERATURE_UNITS == ("C", "K")
