@@ -56,7 +56,11 @@ _METRICS = [
     ("Compressibility factor", "GERG_Z_rel_dev", "DETAIL_Z_rel_dev"),
     ("Isentropic exponent", "GERG_kappa_rel_dev", "DETAIL_kappa_rel_dev"),
 ]
+_METRIC_NAMES = [name for name, _, _ in _METRICS]
 _AXIS_POSITIONS = [(1, 1), (1, 2), (2, 1), (2, 2)]
+_GRID_HEIGHT = 900
+_SINGLE_METRIC_HEIGHT = 640
+PLOT_LAYOUT_OPTIONS = ["All four properties", "Single property"]
 _SCATTER_STATISTICS = ["At selected pressure", "Maximum absolute", "Maximum", "Minimum", "Mean"]
 _DEFAULT_SCATTER_X_AXIS = "C3"
 _DEFAULT_SCATTER_EOS = "GERG-2008"
@@ -157,6 +161,21 @@ def load_all_results() -> dict[str, pd.DataFrame]:
     return {csv_path.stem: pd.read_csv(csv_path) for csv_path in sorted(RESULTS_DIR.glob("*.csv"))}
 
 
+def _metric_subplots(metrics):
+    """Build the subplot frame for the chosen metrics.
+
+    One metric fills the full width as a single panel; four are laid out as a
+    2x2 grid. Returns the figure, the (row, col) slot per metric and the figure
+    height that suits the layout.
+    """
+    subplot_titles = [name for name, _, _ in metrics]
+    if len(metrics) == 1:
+        figure = make_subplots(rows=1, cols=1, subplot_titles=subplot_titles)
+        return figure, [(1, 1)], _SINGLE_METRIC_HEIGHT
+    figure = make_subplots(rows=2, cols=2, subplot_titles=subplot_titles)
+    return figure, _AXIS_POSITIONS, _GRID_HEIGHT
+
+
 def _apply_axis_styling(figure: go.Figure, y_axis_range) -> go.Figure:
     figure.update_xaxes(
         title_text="Pressure [bara]",
@@ -181,18 +200,25 @@ def _apply_axis_styling(figure: go.Figure, y_axis_range) -> go.Figure:
 
 
 def _create_single_figure(
-    station_id, df, eos_models, y_axis_range, eos_colors, line_width=DEFAULT_LINE_WIDTH
+    station_id,
+    df,
+    eos_models,
+    y_axis_range,
+    eos_colors,
+    line_width=DEFAULT_LINE_WIDTH,
+    metrics=None,
 ) -> go.Figure:
+    metrics = metrics or _METRICS
     trace_map = {
         "GERG-2008": {"color": eos_colors["GERG-2008"], "gerg": True},
         "DETAIL": {"color": eos_colors["DETAIL"], "gerg": False},
     }
-    figure = make_subplots(rows=2, cols=2, subplot_titles=[m[0] for m in _METRICS])
+    figure, axis_positions, height = _metric_subplots(metrics)
 
     for eos_name in eos_models:
         is_gerg = trace_map[eos_name]["gerg"]
-        for index, (_, gerg_col, detail_col) in enumerate(_METRICS):
-            row, col = _AXIS_POSITIONS[index]
+        for index, (_, gerg_col, detail_col) in enumerate(metrics):
+            row, col = axis_positions[index]
             column_name = gerg_col if is_gerg else detail_col
             figure.add_trace(
                 go.Scatter(
@@ -210,7 +236,7 @@ def _create_single_figure(
 
     figure.update_layout(
         title=f"{station_id} — all pressure points",
-        height=850,
+        height=height,
         template="plotly_white",
     )
     return _apply_axis_styling(figure, y_axis_range)
@@ -223,8 +249,10 @@ def _create_group_figure(
     y_axis_range,
     eos_colors,
     line_width=DEFAULT_LINE_WIDTH,
+    metrics=None,
 ) -> go.Figure:
-    figure = make_subplots(rows=2, cols=2, subplot_titles=[m[0] for m in _METRICS])
+    metrics = metrics or _METRICS
+    figure, axis_positions, height = _metric_subplots(metrics)
 
     trace_specs = {
         # Both models are drawn solid: with up to 50 gases per model the dashes
@@ -234,8 +262,8 @@ def _create_group_figure(
         "DETAIL": {"color": eos_colors["DETAIL"], "width": line_width},
     }
 
-    for index, (_, gerg_col, detail_col) in enumerate(_METRICS):
-        row, col = _AXIS_POSITIONS[index]
+    for index, (_, gerg_col, detail_col) in enumerate(metrics):
+        row, col = axis_positions[index]
         metric_columns = {"GERG-2008": gerg_col, "DETAIL": detail_col}
 
         for eos_name in eos_models:
@@ -272,7 +300,7 @@ def _create_group_figure(
                 col=col,
             )
 
-    figure.update_layout(title=title_label, height=900, template="plotly_white")
+    figure.update_layout(title=title_label, height=height, template="plotly_white")
     return _apply_axis_styling(figure, y_axis_range)
 
 
@@ -523,6 +551,21 @@ Deviations are reported as `100 × (Property_AGA8 − Property_REFPROP) / Proper
         "Outside Intermediate", int(group_counts.get("Outside Intermediate Quality", 0))
     )
     with control_col_2:
+        plot_layout = st.radio(
+            "Plot layout",
+            PLOT_LAYOUT_OPTIONS,
+            horizontal=True,
+            key="aga8_refprop_plot_layout",
+        )
+        if plot_layout == "Single property":
+            shown_metric = st.selectbox(
+                "Property to plot",
+                _METRIC_NAMES,
+                key="aga8_refprop_shown_metric",
+            )
+            metrics = [m for m in _METRICS if m[0] == shown_metric]
+        else:
+            metrics = _METRICS
         eos_models = st.multiselect(
             "EOS models",
             EOS_OPTIONS,
@@ -601,7 +644,7 @@ Deviations are reported as `100 × (Property_AGA8 − Property_REFPROP) / Proper
         results_df = load_results(selected_id)
         st.plotly_chart(
             _create_single_figure(
-                selected_id, results_df, eos_models, y_axis_range, eos_colors, line_width
+                selected_id, results_df, eos_models, y_axis_range, eos_colors, line_width, metrics
             ),
             use_container_width=True,
         )
@@ -629,6 +672,7 @@ Deviations are reported as `100 × (Property_AGA8 − Property_REFPROP) / Proper
                     y_axis_range,
                     eos_colors,
                     line_width,
+                    metrics,
                 ),
                 use_container_width=True,
             )
