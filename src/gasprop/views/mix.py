@@ -66,7 +66,7 @@ def _render_custom_composition_input(*, key_prefix: str, fluid_label: str) -> tu
         num_rows="fixed",
         column_config={
             "Component": st.column_config.TextColumn("Component", disabled=True, width="small"),
-            "Mol %": st.column_config.NumberColumn("Mol %", min_value=0.0, max_value=100.0, step=0.0001, format="%.4f", width="small"),
+            "Mol %": st.column_config.NumberColumn("Mol %", min_value=0.0, max_value=100.0, step=0.01, format="%.2f", width="small"),
         },
     )
     st.session_state[table_key] = edited
